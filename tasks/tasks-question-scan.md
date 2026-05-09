@@ -1,167 +1,170 @@
-## Relevant Files
+## 相关文件
 
-- `package.json` - Frontend scripts, dependencies, and Tauri command shortcuts.
-- `vite.config.ts` - Vite configuration for the React frontend.
-- `tsconfig.json` - TypeScript compiler settings.
-- `src/main.tsx` - React app entry.
-- `src/App.tsx` - Main shell, routing, and layout composition.
-- `src/styles.css` - Global styles and Tailwind entry.
-- `src/lib/types.ts` - Shared frontend types for settings, capture state, AI output, languages, and history.
-- `src/lib/api.ts` - Typed wrapper around Tauri commands and events.
-- `src/lib/outputSpeed.ts` - Frontend display-speed controller for streamed and buffered output.
-- `src/lib/outputSpeed.test.ts` - Unit tests for display-speed behavior.
-- `src/components/ResultPanel.tsx` - AI output panel, status display, code highlighting, copy actions, and language switching.
-- `src/components/ResultPanel.test.tsx` - Component tests for output states and copy actions.
-- `src/components/SettingsPanel.tsx` - Shortcut, provider, model, language, output speed, and privacy settings.
-- `src/components/SettingsPanel.test.tsx` - Component tests for settings validation and save behavior.
-- `src/components/CropOverlay.tsx` - Manual crop fallback UI when automatic problem detection is uncertain.
-- `src/components/CropOverlay.test.tsx` - Component tests for selection, cancel, and confirm behavior.
-- `src/components/TrayStatus.tsx` - Small status surface for idle, capturing, detecting, generating, complete, and failed states.
-- `src-tauri/Cargo.toml` - Rust dependencies for Tauri, capture, image processing, HTTP, settings, and storage.
-- `src-tauri/tauri.conf.json` - Tauri app configuration, permissions, windows, tray, and bundle settings.
-- `src-tauri/capabilities/default.json` - Tauri command and plugin permissions.
-- `src-tauri/src/main.rs` - Tauri backend entry, command registration, tray setup, app state, and event wiring.
-- `src-tauri/src/commands.rs` - Tauri command handlers exposed to the frontend.
-- `src-tauri/src/settings.rs` - Local settings load, save, validation, and migration.
-- `src-tauri/src/settings_test.rs` - Rust tests for settings defaults, validation, and persistence.
-- `src-tauri/src/screen_capture.rs` - Screen capture, multi-monitor handling, temporary image creation, crop, and cleanup.
-- `src-tauri/src/screen_capture_test.rs` - Rust tests for image crop math, temp-file lifecycle, and cleanup logic.
-- `src-tauri/src/problem_detection.rs` - Problem-region detection, coordinate parsing, confidence scoring, and manual fallback decision.
-- `src-tauri/src/problem_detection_test.rs` - Rust tests for detection response parsing and crop-coordinate validation.
-- `src-tauri/src/ai_client.rs` - OpenAI-compatible multimodal API client, streaming, retries, and typed errors.
-- `src-tauri/src/ai_client_test.rs` - Rust tests for request building, provider config validation, and stream parsing.
-- `src-tauri/src/prompt_templates.rs` - Prompt templates for problem recognition, direct solution generation, language choices, and platform formats.
-- `src-tauri/src/prompt_templates_test.rs` - Rust tests for prompt variables and language/template coverage.
-- `src-tauri/src/languages.rs` - Supported language definitions, file extensions, and output preferences.
-- `src-tauri/src/history.rs` - Optional local history, cache cleanup, and privacy data controls.
-- `src-tauri/src/history_test.rs` - Rust tests for history save, delete, clear, and privacy defaults.
-- `src-tauri/src/errors.rs` - Backend error types mapped to frontend-safe messages.
-- `docs/technical-spike.md` - Notes from validating shortcut, capture, temp image, and AI request feasibility.
-- `docs/privacy-data-flow.md` - User-facing privacy and data-flow explanation.
-- `README.md` - Project setup, development commands, supported platforms, and MVP usage.
+- `package.json` - 前端脚本、依赖和 Tauri 命令入口。
+- `vite.config.ts` - React 前端的 Vite 配置。
+- `tsconfig.json` - TypeScript 编译配置。
+- `src/main.tsx` - React 应用入口。
+- `src/App.tsx` - 主界面外壳、路由和布局组合。
+- `src/styles.css` - 全局样式和 Tailwind 入口。
+- `src/lib/types.ts` - 前端共享类型，包含设置、截图状态、AI 输出、语言和历史记录。
+- `src/lib/api.ts` - 对 Tauri 命令和事件的类型化封装。
+- `src/lib/outputSpeed.ts` - 前端输出速度控制器，负责流式和缓冲式展示。
+- `src/lib/outputSpeed.test.ts` - 输出速度行为的单元测试。
+- `src/components/ResultPanel.tsx` - AI 输出面板、状态展示、代码高亮、复制动作和语言切换。
+- `src/components/ResultPanel.test.tsx` - 输出状态和复制动作的组件测试。
+- `src/components/SettingsPanel.tsx` - 快捷键、服务商、模型、语言、输出速度和隐私设置。
+- `src/components/SettingsPanel.test.tsx` - 设置校验和保存行为的组件测试。
+- `src/components/CropOverlay.tsx` - 自动识别不确定时的手动框选界面。
+- `src/components/CropOverlay.test.tsx` - 选择、取消和确认行为的组件测试。
+- `src/components/TrayStatus.tsx` - 空闲、截图中、识别中、生成中、完成、失败的状态面板。
+- `src-tauri/Cargo.toml` - Rust 依赖，包含 Tauri、截图、图像处理、HTTP、设置和存储相关能力。
+- `src-tauri/tauri.conf.json` - Tauri 应用配置、权限、窗口、托盘和打包设置。
+- `src-tauri/capabilities/default.json` - Tauri 命令和插件权限。
+- `src-tauri/src/main.rs` - Tauri 后端入口、命令注册、托盘设置、应用状态和事件串联。
+- `src-tauri/src/commands.rs` - 暴露给前端的 Tauri 命令处理器。
+- `src-tauri/src/settings.rs` - 本地设置读取、保存、校验和迁移。
+- `src-tauri/src/settings_test.rs` - 设置默认值、校验和持久化的 Rust 测试。
+- `src-tauri/src/screen_capture.rs` - 屏幕截图、多显示器处理、临时图片生成、裁剪和清理。
+- `src-tauri/src/screen_capture_test.rs` - 图像裁剪坐标、临时文件生命周期和清理逻辑的 Rust 测试。
+- `src-tauri/src/problem_detection.rs` - 题目区域识别、坐标解析、置信度评分和手动兜底判断。
+- `src-tauri/src/problem_detection_test.rs` - 识别响应解析和裁剪坐标校验的 Rust 测试。
+- `src-tauri/src/ai_client.rs` - 兼容 OpenAI 的多模态接口客户端、流式处理、重试和类型化错误。
+- `src-tauri/src/ai_client_test.rs` - 请求构造、服务商配置校验和流解析的 Rust 测试。
+- `src-tauri/src/prompt_templates.rs` - 题目识别、直接解题、多语言选择和平台格式的 Prompt 模板。
+- `src-tauri/src/prompt_templates_test.rs` - Prompt 变量和语言模板覆盖的 Rust 测试。
+- `src-tauri/src/languages.rs` - 支持语言定义、文件扩展名和输出偏好。
+- `src-tauri/src/history.rs` - 可选的本地历史、缓存清理和隐私数据控制。
+- `src-tauri/src/history_test.rs` - 历史保存、删除、清空和隐私默认值的 Rust 测试。
+- `src-tauri/src/errors.rs` - 映射到前端安全消息的后端错误类型。
+- `AGENTS.md` - 进入这个仓库工作的代理级说明。
+- `docs/development-workflow.md` - 固定的执行流程，包含任务、验证、提交和发布检查点。
+- `docs/technical-spike.md` - 快捷键、截图、临时图片和 AI 请求可行性验证记录。
+- `docs/privacy-data-flow.md` - 面向用户的隐私和数据流说明。
+- `README.md` - 项目安装、开发命令、支持平台和 MVP 使用说明。
 
-### Notes
+### 说明
 
-- Unit tests should sit near the code they verify when the project structure allows it. Rust tests can live in the same module or sibling test modules.
-- Use `npm test -- --run` for frontend unit tests after the frontend test runner is configured.
-- Use `cargo test` from `src-tauri` for Rust unit tests.
-- Use `npm run tauri dev` for manual desktop verification.
-- First release should target Windows. macOS and Linux support can be planned after the screenshot and permission model is stable.
-- OpenAI-compatible multimodal API is the first Provider target. Other Providers should be added behind the same interface after MVP.
-- Output speed controls the local reveal speed in the result panel. It cannot fully control model-side generation latency.
-- The product scope is authorized practice, self-testing, open problem environments, and personal workflow use. Do not add hidden exam, proctoring evasion, automatic third-party submission, or automatic answer insertion features.
+- 单元测试尽量和被测试代码放在一起。Rust 测试可以放在同一个模块里，也可以放在相邻测试模块里。
+- 前端测试使用 `npm test -- --run`。
+- Rust 测试使用 `cargo test`，从 `src-tauri` 目录执行。
+- 桌面手动验证使用 `npm run tauri dev`。
+- 第一版先支持 Windows。macOS 和 Linux 可以放到截图权限模型稳定之后再做。
+- 第一版先接兼容 OpenAI 的多模态接口，其他服务商后续再挂到同一层接口上。
+- 输出速度控制的是前端本地展示节奏，不是模型真实生成速度。
+- 产品范围只限授权练习、自测、开放题目环境和个人工作流使用，不做隐蔽考试、检测规避、自动提交和自动填答案能力。
 
-## Instructions for Completing Tasks
+## 任务说明
 
-**IMPORTANT:** As you complete each task, you must check it off in this markdown file by changing `- [ ]` to `- [x]`. This helps track progress and ensures you don't skip any steps.
+**重要：** 每完成一个子任务，就必须把这个 Markdown 文件里的对应项从 `[ ]` 改成 `[x]`。这样才能跟踪进度，也能避免漏做步骤。
 
-Example:
-- `- [ ] 1.1 Read file` -> `- [x] 1.1 Read file` after completing.
+示例：
 
-Update the file after completing each sub-task, not just after completing an entire parent task.
+- `[ ] 1.1 阅读文件` -> 完成后改成 `[x] 1.1 阅读文件`
 
-## Tasks
+要在完成每个子任务后更新文件，而不是等整个父任务都做完后再改。
 
-- [ ] 0.0 Create feature branch
-  - [ ] 0.1 Confirm the current git status and note any unrelated existing changes.
-  - [ ] 0.2 Create and checkout a new branch, for example `feature/question-scan-mvp`.
-  - [ ] 0.3 Confirm the branch name and clean baseline before project scaffolding.
+## 任务
 
-- [ ] 1.0 Build Tauri app foundation
-  - [ ] 1.1 Initialize a Tauri 2.x project with React, TypeScript, and Vite.
-  - [ ] 1.2 Add Tailwind CSS and the base styling entry.
-  - [ ] 1.3 Add a basic app shell with a compact control surface, settings area, and result panel placeholder.
-  - [ ] 1.4 Configure linting, formatting, and test scripts.
-  - [ ] 1.5 Configure Tauri permissions and app metadata in `tauri.conf.json` and capabilities files.
-  - [ ] 1.6 Add typed frontend-to-backend command wrappers in `src/lib/api.ts`.
-  - [ ] 1.7 Add shared type definitions for app state, settings, languages, capture status, and AI result status.
-  - [ ] 1.8 Verify the app starts with `npm run tauri dev`.
+- [ ] 0.0 创建功能分支
+  - [ ] 0.1 确认当前 git 状态，记录无关变更。
+  - [ ] 0.2 创建并切换到新的功能分支，例如 `feature/question-scan-mvp`。
+  - [ ] 0.3 确认分支名和当前干净基线，准备开始搭建项目。
 
-- [ ] 2.0 Add global shortcut and tray workflow
-  - [ ] 2.1 Add the Tauri global shortcut plugin or the chosen shortcut integration.
-  - [ ] 2.2 Define default shortcut `Ctrl+Shift+Q` and make it configurable.
-  - [ ] 2.3 Register the shortcut on app startup and unregister it on app shutdown.
-  - [ ] 2.4 Detect registration failure and show a user-facing conflict message.
-  - [ ] 2.5 Add a tray icon with states for idle, capturing, detecting, generating, complete, and failed.
-  - [ ] 2.6 Add tray actions for show window, open settings, enable or disable shortcut, and quit.
-  - [ ] 2.7 Write settings tests for shortcut defaults, custom shortcut persistence, and disabled shortcut state.
-  - [ ] 2.8 Manually verify shortcut trigger while the app is in the background.
+- [ ] 1.0 搭建 Tauri 应用底座
+  - [ ] 1.1 初始化一个 Tauri 2.x 项目，使用 React、TypeScript 和 Vite。
+  - [ ] 1.2 接入 Tailwind CSS 和基础样式入口。
+  - [ ] 1.3 加一个基础应用外壳，包含紧凑控制区、设置区和结果面板占位。
+  - [ ] 1.4 配置 lint、格式化和测试脚本。
+  - [ ] 1.5 配置 `tauri.conf.json` 和权限文件里的 Tauri 权限与应用元数据。
+  - [ ] 1.6 在 `src/lib/api.ts` 里加类型化的前后端命令封装。
+  - [ ] 1.7 加共享类型定义，覆盖应用状态、设置、语言、截图状态和 AI 结果状态。
+  - [ ] 1.8 验证应用能用 `npm run tauri dev` 启动。
 
-- [ ] 3.0 Build screen capture and temporary image pipeline
-  - [ ] 3.1 Select and add a Rust screenshot library that works on Windows.
-  - [ ] 3.2 Implement capture of the active display or all displays, depending on configuration.
-  - [ ] 3.3 Normalize display coordinates for multi-monitor layouts.
-  - [ ] 3.4 Save a temporary PNG or JPEG in the system temp directory.
-  - [ ] 3.5 Add image compression settings to control AI request size.
-  - [ ] 3.6 Return a capture metadata object with image path, dimensions, display id, and timestamp.
-  - [ ] 3.7 Ensure temporary images are deleted after the AI request or after failure.
-  - [ ] 3.8 Add tests for crop math, temp-file cleanup, and invalid path handling.
-  - [ ] 3.9 Manually verify screenshot capture on a normal Windows desktop and a multi-monitor setup if available.
+- [ ] 2.0 加全局快捷键和托盘流程
+  - [ ] 2.1 加入 Tauri 全局快捷键插件，或者选定的快捷键集成方案。
+  - [ ] 2.2 定义默认快捷键 `Ctrl+Shift+Q`，并支持配置。
+  - [ ] 2.3 在应用启动时注册快捷键，在退出时注销快捷键。
+  - [ ] 2.4 快捷键注册失败时，给出用户能看懂的冲突提示。
+  - [ ] 2.5 加一个托盘图标，支持空闲、截图中、识别中、生成中、完成和失败状态。
+  - [ ] 2.6 给托盘加打开窗口、打开设置、启用或禁用快捷键、退出等动作。
+  - [ ] 2.7 给快捷键默认值、自定义保存和禁用状态写设置测试。
+  - [ ] 2.8 在应用后台时手动验证快捷键能触发。
 
-- [ ] 4.0 Add problem-region detection and manual crop fallback
-  - [ ] 4.1 Define the detection response schema: bounding box, confidence, extracted title, extracted problem text, and reason.
-  - [ ] 4.2 Build a low-resolution image request for region detection to reduce cost and latency.
-  - [ ] 4.3 Ask the vision model to return the most likely algorithm problem area coordinates.
-  - [ ] 4.4 Validate AI-returned coordinates against the screenshot bounds.
-  - [ ] 4.5 Crop the original high-resolution screenshot using the validated region.
-  - [ ] 4.6 Add confidence thresholds for automatic accept, confirm-before-use, and manual fallback.
-  - [ ] 4.7 Build `CropOverlay` so the user can drag-select the problem area when detection fails.
-  - [ ] 4.8 Add cancel, retry auto-detect, and confirm crop actions.
-  - [ ] 4.9 Add tests for coordinate parsing, out-of-bounds rejection, confidence routing, and overlay selection behavior.
-  - [ ] 4.10 Manually verify detection with browser, PDF, IDE, and dark-mode problem pages.
+- [ ] 3.0 搭建屏幕截图和临时图片链路
+  - [ ] 3.1 选一个能在 Windows 上工作的 Rust 截图库并接入。
+  - [ ] 3.2 实现按配置抓取当前显示器或全部显示器。
+  - [ ] 3.3 统一多显示器布局下的坐标。
+  - [ ] 3.4 在系统临时目录里保存 PNG 或 JPEG 临时文件。
+  - [ ] 3.5 增加图片压缩配置，控制发送给 AI 的大小。
+  - [ ] 3.6 返回截图元数据对象，包含图片路径、尺寸、显示器 ID 和时间戳。
+  - [ ] 3.7 保证 AI 请求结束后，或者失败后，临时图片会被删除。
+  - [ ] 3.8 给裁剪坐标、临时文件清理和无效路径处理写测试。
+  - [ ] 3.9 在普通 Windows 桌面和多显示器环境里手动验证截图。
 
-- [ ] 5.0 Add AI provider settings and multimodal request flow
-  - [ ] 5.1 Add settings fields for Provider name, API Base URL, API Key, model, timeout, and streaming enabled.
-  - [ ] 5.2 Store secrets locally with the safest practical mechanism available for MVP.
-  - [ ] 5.3 Validate Provider settings before sending any request.
-  - [ ] 5.4 Implement OpenAI-compatible multimodal request construction for image input and text instructions.
-  - [ ] 5.5 Implement streaming response handling and event emission to the frontend.
-  - [ ] 5.6 Implement non-streaming fallback for Providers that do not stream image responses reliably.
-  - [ ] 5.7 Add typed errors for invalid API Key, unsupported image model, timeout, network failure, and malformed response.
-  - [ ] 5.8 Add retry behavior for transient failures with a clear retry limit.
-  - [ ] 5.9 Add tests for request payload shape, settings validation, error mapping, and stream parsing.
-  - [ ] 5.10 Manually verify one real image request against a configured multimodal model.
+- [ ] 4.0 加题目区域识别和手动框选兜底
+  - [ ] 4.1 定义识别返回结构，包括边界框、置信度、提取出的标题、题目文本和原因。
+  - [ ] 4.2 用低分辨率图片做区域识别请求，降低成本和延迟。
+  - [ ] 4.3 让视觉模型返回最可能的算法题区域坐标。
+  - [ ] 4.4 校验 AI 返回的坐标是否在截图边界内。
+  - [ ] 4.5 用校验过的区域裁剪原始高清截图。
+  - [ ] 4.6 为自动接受、需要确认和手动兜底设置不同的置信度阈值。
+  - [ ] 4.7 做出 `CropOverlay`，在自动识别失败时让用户拖拽选择题目区域。
+  - [ ] 4.8 增加取消、重新自动识别和确认裁剪动作。
+  - [ ] 4.9 给坐标解析、越界拒绝、置信度路由和覆盖层选择行为写测试。
+  - [ ] 4.10 在浏览器、PDF、IDE 和深色题目页上手动验证识别效果。
 
-- [ ] 6.0 Generate direct algorithm solutions in C++ and other main languages
-  - [ ] 6.1 Define supported language metadata for C++17, C++20, Python, Java, JavaScript, TypeScript, Go, and Rust.
-  - [ ] 6.2 Add default output template for direct solution mode: problem recognition, strategy, code, complexity, edge cases, and notes.
-  - [ ] 6.3 Add platform format options for ACM stdin/stdout, LeetCode function signature, and generic function.
-  - [ ] 6.4 Make C++ the recommended default language for MVP unless the user chooses another language.
-  - [ ] 6.5 Add per-language prompt constraints, including imports, class naming, input parsing, and standard version.
-  - [ ] 6.6 Support one-click regenerate in a different language using the same cropped image and detected text.
-  - [ ] 6.7 Add output parsing that identifies the primary code block for copy-code actions.
-  - [ ] 6.8 Add tests for language metadata, template coverage, prompt variables, and code-block extraction.
-  - [ ] 6.9 Manually verify generated answers for at least one array, one dynamic programming, and one graph problem.
+- [ ] 5.0 加 AI 服务配置和多模态请求流程
+  - [ ] 5.1 增加服务商名称、API Base URL、API Key、模型、超时时间和是否启用流式输出等设置项。
+  - [ ] 5.2 用 MVP 能做到的最安全方式存储密钥。
+  - [ ] 5.3 在发送请求前校验服务商配置。
+  - [ ] 5.4 实现兼容 OpenAI 的多模态请求构造，把图片输入和文本指令一起发出去。
+  - [ ] 5.5 实现流式响应处理，并向前端发出事件。
+  - [ ] 5.6 给不稳定的非流式图片响应做降级处理。
+  - [ ] 5.7 为无效 API Key、不支持图片的模型、超时、网络失败和格式错误添加类型化错误。
+  - [ ] 5.8 给临时故障增加重试逻辑，并限制重试次数。
+  - [ ] 5.9 给请求体结构、设置校验、错误映射和流解析写测试。
+  - [ ] 5.10 用一个真实的多模态模型手动验证一次图片请求。
 
-- [ ] 7.0 Build result panel, code highlighting, copy actions, and output-speed control
-  - [ ] 7.1 Build result panel states for idle, capturing, detecting, waiting for crop, generating, complete, and failed.
-  - [ ] 7.2 Render Markdown output with syntax-highlighted code blocks.
-  - [ ] 7.3 Add copy code, copy full answer, clear result, regenerate, and change-language actions.
-  - [ ] 7.4 Add output speed options: fast, normal, slow, and custom characters per second.
-  - [ ] 7.5 Implement local reveal pacing for buffered output and streamed chunks.
-  - [ ] 7.6 Ensure copying uses the complete generated output, even if the visual reveal is still catching up.
-  - [ ] 7.7 Add visible status text for screenshot, detection, generation, completion, and failure.
-  - [ ] 7.8 Add tests for speed pacing, copy behavior, failed state, and language regeneration action.
-  - [ ] 7.9 Manually verify long C++ output does not break layout on common desktop window sizes.
+- [ ] 6.0 生成 C++ 和其他主流语言的直接算法解法
+  - [ ] 6.1 定义支持语言元数据，覆盖 C++17、C++20、Python、Java、JavaScript、TypeScript、Go 和 Rust。
+  - [ ] 6.2 给直接解题模式加默认输出模板，包含题目识别、策略、代码、复杂度、边界用例和说明。
+  - [ ] 6.3 增加平台格式选项，覆盖 ACM 标准输入输出、LeetCode 函数签名和通用函数模式。
+  - [ ] 6.4 把 C++ 设为 MVP 推荐默认语言，除非用户选择其他语言。
+  - [ ] 6.5 为每种语言增加 Prompt 约束，包含导入、类名、输入解析和标准版本要求。
+  - [ ] 6.6 支持在相同裁剪图和识别文本的基础上，一键切换语言重新生成。
+  - [ ] 6.7 增加输出解析，识别主代码块，供复制按钮使用。
+  - [ ] 6.8 给语言元数据、模板覆盖、Prompt 变量和代码块提取写测试。
+  - [ ] 6.9 至少手动验证一个数组题、一个动态规划题和一个图题的输出。
 
-- [ ] 8.0 Add local settings, optional history, cache cleanup, and privacy controls
-  - [ ] 8.1 Define settings schema and defaults for shortcut, Provider, language, platform format, output speed, history, and screenshot retention.
-  - [ ] 8.2 Add settings migrations so future schema changes do not break existing users.
-  - [ ] 8.3 Add optional local history with timestamp, detected text, chosen language, model, result, and user note.
-  - [ ] 8.4 Keep full-screen screenshot saving off by default.
-  - [ ] 8.5 Add explicit privacy copy explaining screenshot, crop, temporary file, AI request, and optional history storage.
-  - [ ] 8.6 Add clear cache, delete history item, and clear all history actions.
-  - [ ] 8.7 Add automatic cleanup for orphaned temporary images on app startup.
-  - [ ] 8.8 Add tests for settings defaults, history disabled behavior, delete actions, and cleanup behavior.
-  - [ ] 8.9 Write `docs/privacy-data-flow.md` for release documentation.
+- [ ] 7.0 搭建结果面板、代码高亮、复制动作和输出速度控制
+  - [ ] 7.1 做出结果面板状态，包含空闲、截图中、识别中、等待框选、生成中、完成和失败。
+  - [ ] 7.2 用 Markdown 渲染输出，并对代码块做语法高亮。
+  - [ ] 7.3 加复制代码、复制完整答案、清空结果、重新生成和切换语言动作。
+  - [ ] 7.4 增加输出速度选项，包含快速、正常、慢速和自定义字符每秒。
+  - [ ] 7.5 实现本地展示节奏控制，同时兼容缓冲输出和流式分块。
+  - [ ] 7.6 保证在视觉上还没完全展开时，复制拿到的仍然是完整输出。
+  - [ ] 7.7 给截图、识别、生成、完成和失败加可见状态文本。
+  - [ ] 7.8 给速度节奏、复制行为、失败状态和语言重新生成动作写测试。
+  - [ ] 7.9 手动验证长 C++ 输出不会撑坏常见桌面窗口布局。
 
-- [ ] 9.0 Package Windows MVP and write release documentation
-  - [ ] 9.1 Add README setup instructions for Node, Rust, Tauri prerequisites, and development commands.
-  - [ ] 9.2 Document supported MVP workflow: configure model, press shortcut, crop if needed, generate answer, copy code.
-  - [ ] 9.3 Document unsupported scope: hidden exam use, proctoring evasion, automatic third-party submission, and automatic answer insertion.
-  - [ ] 9.4 Add build script and verify Windows bundle generation.
-  - [ ] 9.5 Run frontend unit tests.
-  - [ ] 9.6 Run Rust unit tests.
-  - [ ] 9.7 Run a manual MVP acceptance pass against the PRD acceptance criteria.
-  - [ ] 9.8 Record known limitations and next-version candidates in the README.
-  - [ ] 9.9 Tag or prepare the first MVP release after verification passes.
+- [ ] 8.0 加本地设置、可选历史、缓存清理和隐私控制
+  - [ ] 8.1 定义设置结构和默认值，覆盖快捷键、服务商、语言、平台格式、输出速度、历史和截图保留策略。
+  - [ ] 8.2 加设置迁移，避免未来的结构变化破坏老用户数据。
+  - [ ] 8.3 增加可选本地历史，记录时间戳、识别文本、选择的语言、模型、结果和用户备注。
+  - [ ] 8.4 保持默认不保存整张屏幕截图。
+  - [ ] 8.5 增加明确的隐私说明，解释截图、裁剪、临时文件、AI 请求和可选历史的流向。
+  - [ ] 8.6 增加清空缓存、删除单条历史和清空全部历史动作。
+  - [ ] 8.7 在应用启动时自动清理遗留的临时图片。
+  - [ ] 8.8 给设置默认值、历史关闭行为、删除动作和清理行为写测试。
+  - [ ] 8.9 编写 `docs/privacy-data-flow.md`，作为发布文档的一部分。
+
+- [ ] 9.0 打包 Windows MVP 并编写发布说明
+  - [ ] 9.1 在 README 里写清楚 Node、Rust、Tauri 依赖、安装步骤和开发命令。
+  - [ ] 9.2 说明 MVP 支持流程：配置模型、按快捷键、必要时框选、生成答案、复制代码。
+  - [ ] 9.3 说明不支持的范围：隐蔽考试、监考规避、自动提交到第三方平台和自动填答案。
+  - [ ] 9.4 加构建脚本，并验证 Windows 安装包能生成。
+  - [ ] 9.5 运行前端单元测试。
+  - [ ] 9.6 运行 Rust 单元测试。
+  - [ ] 9.7 按 PRD 验收条件做一次完整的手动检查。
+  - [ ] 9.8 在 README 里记录已知限制和后续版本方向。
+  - [ ] 9.9 在验证通过后，为第一版 MVP 做 tag 或发布准备。
