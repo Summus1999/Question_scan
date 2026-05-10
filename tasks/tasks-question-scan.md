@@ -1,6 +1,7 @@
 ## 相关文件
 
 - `package.json` - 前端脚本、依赖和 Tauri 命令入口。
+- `.gitattributes` - 固定文本文件换行为 LF，避免 Windows 环境下格式化和 lint 反复冲突。
 - `biome.json` - 代码格式和基础检查配置。
 - `index.html` - Vite 前端 HTML 入口。
 - `vite.config.ts` - React 前端的 Vite 配置。
@@ -15,42 +16,24 @@
 - `src/lib/api.ts` - 对 Tauri 命令和事件的类型化封装。
 - `src/lib/api.test.ts` - Tauri 命令封装测试。
 - `src/test/setup.ts` - Vitest 与 DOM 匹配器初始化。
-- `src/lib/outputSpeed.ts` - 前端输出速度控制器，负责流式和缓冲式展示。
-- `src/lib/outputSpeed.test.ts` - 输出速度行为的单元测试。
-- `src/components/ResultPanel.tsx` - AI 输出面板、状态展示、代码高亮、复制动作和语言切换。
-- `src/components/ResultPanel.test.tsx` - 输出状态和复制动作的组件测试。
-- `src/components/SettingsPanel.tsx` - 快捷键、服务商、模型、语言、输出速度和隐私设置。
-- `src/components/SettingsPanel.test.tsx` - 设置校验和保存行为的组件测试。
-- `src/components/CropOverlay.tsx` - 自动识别不确定时的手动框选界面。
-- `src/components/CropOverlay.test.tsx` - 选择、取消和确认行为的组件测试。
-- `src/components/TrayStatus.tsx` - 空闲、截图中、识别中、生成中、完成、失败的状态面板。
-- `src-tauri/Cargo.toml` - Rust 依赖，包含 Tauri、截图、图像处理、HTTP、设置和存储相关能力。
+- `src-tauri/Cargo.toml` - Rust 依赖，包含 Tauri、托盘、设置和日志相关能力。
+- `src-tauri/Cargo.lock` - Rust 依赖锁定文件。
 - `src-tauri/build.rs` - Tauri build 脚本和自定义命令权限生成。
 - `src-tauri/tauri.conf.json` - Tauri 应用配置、权限、窗口、托盘和打包设置。
 - `src-tauri/capabilities/default.json` - Tauri 命令和插件权限。
 - `src-tauri/icons/tray-icon.png` - 托盘图标资源。
 - `src-tauri/icons/icon.png` - 应用图标资源。
+- `src-tauri/icons/icon.ico` - Windows 应用图标资源。
 - `src-tauri/src/main.rs` - Tauri 后端入口、命令注册、托盘设置、应用状态和事件串联。
 - `src-tauri/src/commands.rs` - 暴露给前端的 Tauri 命令处理器。
 - `src-tauri/src/settings.rs` - 本地设置读取、保存、校验和迁移。
 - `src-tauri/src/errors.rs` - 映射到前端安全消息的后端错误类型。
 - `src-tauri/src/tray.rs` - 托盘菜单、点击事件和窗口显隐动作。
-- `src-tauri/src/settings.rs` - 设置默认值、校验和持久化的 Rust 测试也在这里。
-- `src-tauri/src/screen_capture.rs` - 屏幕截图、多显示器处理、临时图片生成、裁剪和清理。
-- `src-tauri/src/screen_capture_test.rs` - 图像裁剪坐标、临时文件生命周期和清理逻辑的 Rust 测试。
-- `src-tauri/src/problem_detection.rs` - 题目区域识别、坐标解析、置信度评分和手动兜底判断。
-- `src-tauri/src/problem_detection_test.rs` - 识别响应解析和裁剪坐标校验的 Rust 测试。
-- `src-tauri/src/ai_client.rs` - 兼容 OpenAI 的多模态接口客户端、流式处理、重试和类型化错误。
-- `src-tauri/src/ai_client_test.rs` - 请求构造、服务商配置校验和流解析的 Rust 测试。
-- `src-tauri/src/prompt_templates.rs` - 题目识别、直接解题、多语言选择和平台格式的 Prompt 模板。
-- `src-tauri/src/prompt_templates_test.rs` - Prompt 变量和语言模板覆盖的 Rust 测试。
-- `src-tauri/src/languages.rs` - 支持语言定义、文件扩展名和输出偏好。
-- `src-tauri/src/history.rs` - 可选的本地历史、缓存清理和隐私数据控制。
-- `src-tauri/src/history_test.rs` - 历史保存、删除、清空和隐私默认值的 Rust 测试。
 - `AGENTS.md` - 进入这个仓库工作的代理级说明。
 - `docs/development-workflow.md` - 固定的执行流程，包含任务、验证、提交和发布检查点。
-- `docs/technical-spike.md` - 快捷键、截图、临时图片和 AI 请求可行性验证记录。
-- `docs/privacy-data-flow.md` - 面向用户的隐私和数据流说明。
+- `docs/developer-setup.md` - 开发环境快照、安装步骤、一键脚本说明和常见问题。
+- `scripts/setup.ps1` - Windows 开发环境检查和依赖安装脚本。
+- `scripts/dev.ps1` - 一键启动 Tauri 开发环境的脚本。
 - `README.md` - 项目安装、开发命令、支持平台和 MVP 使用说明。
 
 ### 说明
@@ -86,6 +69,14 @@
 - 开发者能够从共享类型模块获取应用状态、设置、语言、截图状态和 AI 结果状态的稳定枚举值与默认状态。
 - 开发者能够用 `npm run tauri dev` 启动阶段 1 桌面应用，并看到 Vite 与 Tauri 后端进入开发运行状态。
 
+## 开发环境交接用例
+
+- 新开发者能够从 GitHub 拉取 `main` 分支，看到已验证的 Tauri 应用底座、锁定文件和环境文档。
+- 新开发者能够运行 `scripts/setup.ps1` 检查 Node、npm、Rust 和 Cargo，并安装前端依赖。
+- 新开发者能够运行 `scripts/dev.ps1` 一键启动桌面开发环境，而不需要手动记忆 `npm run tauri dev`。
+- 当本机缺少必要工具时，脚本能够失败并提示缺少的命令，开发者能按文档补齐环境。
+- 开发者能够在 README 和 `docs/developer-setup.md` 里查到当前验证过的本地版本、手动命令和常见问题。
+
 ## 任务
 
 - [x] 0.0 创建功能分支
@@ -103,6 +94,7 @@
   - [x] 1.6 在 `src/lib/api.ts` 里加类型化的前后端命令封装。
   - [x] 1.7 加共享类型定义，覆盖应用状态、设置、语言、截图状态和 AI 结果状态。
   - [x] 1.8 验证应用能用 `npm run tauri dev` 启动。
+  - [x] 1.9 记录开发环境配置，并提供一键安装和启动脚本。
 
 - [ ] 2.0 加全局快捷键和托盘流程
   - [ ] 2.1 加入 Tauri 全局快捷键插件，或者选定的快捷键集成方案。
