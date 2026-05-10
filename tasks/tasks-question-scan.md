@@ -1,13 +1,20 @@
 ## 相关文件
 
 - `package.json` - 前端脚本、依赖和 Tauri 命令入口。
+- `biome.json` - 代码格式和基础检查配置。
+- `index.html` - Vite 前端 HTML 入口。
 - `vite.config.ts` - React 前端的 Vite 配置。
 - `tsconfig.json` - TypeScript 编译配置。
+- `src/vite-env.d.ts` - Vite 环境类型声明。
 - `src/main.tsx` - React 应用入口。
 - `src/App.tsx` - 主界面外壳、路由和布局组合。
+- `src/App.test.tsx` - 主界面骨架渲染测试。
 - `src/styles.css` - 全局样式和 Tailwind 入口。
 - `src/lib/types.ts` - 前端共享类型，包含设置、截图状态、AI 输出、语言和历史记录。
+- `src/lib/types.test.ts` - 共享类型常量、选项列表和默认状态的单元测试。
 - `src/lib/api.ts` - 对 Tauri 命令和事件的类型化封装。
+- `src/lib/api.test.ts` - Tauri 命令封装测试。
+- `src/test/setup.ts` - Vitest 与 DOM 匹配器初始化。
 - `src/lib/outputSpeed.ts` - 前端输出速度控制器，负责流式和缓冲式展示。
 - `src/lib/outputSpeed.test.ts` - 输出速度行为的单元测试。
 - `src/components/ResultPanel.tsx` - AI 输出面板、状态展示、代码高亮、复制动作和语言切换。
@@ -18,12 +25,17 @@
 - `src/components/CropOverlay.test.tsx` - 选择、取消和确认行为的组件测试。
 - `src/components/TrayStatus.tsx` - 空闲、截图中、识别中、生成中、完成、失败的状态面板。
 - `src-tauri/Cargo.toml` - Rust 依赖，包含 Tauri、截图、图像处理、HTTP、设置和存储相关能力。
+- `src-tauri/build.rs` - Tauri build 脚本和自定义命令权限生成。
 - `src-tauri/tauri.conf.json` - Tauri 应用配置、权限、窗口、托盘和打包设置。
 - `src-tauri/capabilities/default.json` - Tauri 命令和插件权限。
+- `src-tauri/icons/tray-icon.png` - 托盘图标资源。
+- `src-tauri/icons/icon.png` - 应用图标资源。
 - `src-tauri/src/main.rs` - Tauri 后端入口、命令注册、托盘设置、应用状态和事件串联。
 - `src-tauri/src/commands.rs` - 暴露给前端的 Tauri 命令处理器。
 - `src-tauri/src/settings.rs` - 本地设置读取、保存、校验和迁移。
-- `src-tauri/src/settings_test.rs` - 设置默认值、校验和持久化的 Rust 测试。
+- `src-tauri/src/errors.rs` - 映射到前端安全消息的后端错误类型。
+- `src-tauri/src/tray.rs` - 托盘菜单、点击事件和窗口显隐动作。
+- `src-tauri/src/settings.rs` - 设置默认值、校验和持久化的 Rust 测试也在这里。
 - `src-tauri/src/screen_capture.rs` - 屏幕截图、多显示器处理、临时图片生成、裁剪和清理。
 - `src-tauri/src/screen_capture_test.rs` - 图像裁剪坐标、临时文件生命周期和清理逻辑的 Rust 测试。
 - `src-tauri/src/problem_detection.rs` - 题目区域识别、坐标解析、置信度评分和手动兜底判断。
@@ -35,7 +47,6 @@
 - `src-tauri/src/languages.rs` - 支持语言定义、文件扩展名和输出偏好。
 - `src-tauri/src/history.rs` - 可选的本地历史、缓存清理和隐私数据控制。
 - `src-tauri/src/history_test.rs` - 历史保存、删除、清空和隐私默认值的 Rust 测试。
-- `src-tauri/src/errors.rs` - 映射到前端安全消息的后端错误类型。
 - `AGENTS.md` - 进入这个仓库工作的代理级说明。
 - `docs/development-workflow.md` - 固定的执行流程，包含任务、验证、提交和发布检查点。
 - `docs/technical-spike.md` - 快捷键、截图、临时图片和 AI 请求可行性验证记录。
@@ -63,22 +74,35 @@
 
 要在完成每个子任务后更新文件，而不是等整个父任务都做完后再改。
 
+## 阶段 1 用例
+
+- 用户能够启动桌面应用，看到托盘图标、主窗口和最小化后的后台运行状态。
+- 用户能够打开设置骨架，在同一个界面里看到快捷区、设置区和结果面板占位。
+- 用户能够保存和重新加载基础配置，并在配置读写失败时看到明确的错误提示。
+- 开发者能够通过函数级注释快速定位前端状态同步、Tauri 命令桥接、设置持久化和托盘流程的职责边界。
+- 开发者能够运行 lint、格式化和测试脚本，并且工具默认跳过依赖、构建产物、Tauri 生成权限和 Rust target 目录。
+- 开发者能够从 Tauri 配置中确认应用名称、版本、标识符、图标、Windows 主窗口和最小命令权限边界。
+- 开发者能够通过 `src/lib/api.ts` 的类型化命令契约调用后端，避免前端散落硬编码命令名和错误 payload。
+- 开发者能够从共享类型模块获取应用状态、设置、语言、截图状态和 AI 结果状态的稳定枚举值与默认状态。
+- 开发者能够用 `npm run tauri dev` 启动阶段 1 桌面应用，并看到 Vite 与 Tauri 后端进入开发运行状态。
+
 ## 任务
 
-- [ ] 0.0 创建功能分支
-  - [ ] 0.1 确认当前 git 状态，记录无关变更。
-  - [ ] 0.2 创建并切换到新的功能分支，例如 `feature/question-scan-mvp`。
-  - [ ] 0.3 确认分支名和当前干净基线，准备开始搭建项目。
+- [x] 0.0 创建功能分支
+  - [x] 0.1 确认当前 git 状态，记录无关变更。
+  - [x] 0.2 创建并切换到新的功能分支，例如 `feature/question-scan-mvp`。
+  - [x] 0.3 确认分支名和当前干净基线，准备开始搭建项目。
 
-- [ ] 1.0 搭建 Tauri 应用底座
-  - [ ] 1.1 初始化一个 Tauri 2.x 项目，使用 React、TypeScript 和 Vite。
-  - [ ] 1.2 接入 Tailwind CSS 和基础样式入口。
-  - [ ] 1.3 加一个基础应用外壳，包含紧凑控制区、设置区和结果面板占位。
-  - [ ] 1.4 配置 lint、格式化和测试脚本。
-  - [ ] 1.5 配置 `tauri.conf.json` 和权限文件里的 Tauri 权限与应用元数据。
-  - [ ] 1.6 在 `src/lib/api.ts` 里加类型化的前后端命令封装。
-  - [ ] 1.7 加共享类型定义，覆盖应用状态、设置、语言、截图状态和 AI 结果状态。
-  - [ ] 1.8 验证应用能用 `npm run tauri dev` 启动。
+- [x] 1.0 搭建 Tauri 应用底座
+  - [x] 1.1 初始化一个 Tauri 2.x 项目，使用 React、TypeScript 和 Vite。
+  - [x] 1.2 接入 Tailwind CSS 和基础样式入口。
+  - [x] 1.3 加一个基础应用外壳，包含紧凑控制区、设置区和结果面板占位。
+  - [x] 1.3a 给当前函数补充定位注释，便于后续排查问题。
+  - [x] 1.4 配置 lint、格式化和测试脚本。
+  - [x] 1.5 配置 `tauri.conf.json` 和权限文件里的 Tauri 权限与应用元数据。
+  - [x] 1.6 在 `src/lib/api.ts` 里加类型化的前后端命令封装。
+  - [x] 1.7 加共享类型定义，覆盖应用状态、设置、语言、截图状态和 AI 结果状态。
+  - [x] 1.8 验证应用能用 `npm run tauri dev` 启动。
 
 - [ ] 2.0 加全局快捷键和托盘流程
   - [ ] 2.1 加入 Tauri 全局快捷键插件，或者选定的快捷键集成方案。

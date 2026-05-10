@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Question Scan",
+  "mainBinaryName": "question-scan",
+  "version": "0.1.0",
+  "identifier": "com.questionscan.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Question Scan",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 1024,
+        "minHeight": 720,
+        "center": true,
+        "resizable": true,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": ["main-window"]
+    },
+    "trayIcon": {
+      "id": "main",
+      "iconPath": "icons/tray-icon.png",
+      "tooltip": "Question Scan",
+      "showMenuOnLeftClick": false
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "publisher": "Question Scan",
+    "category": "DeveloperTool",
+    "shortDescription": "Desktop workflow tool for authorized algorithm practice.",
+    "longDescription": "Question Scan is a Tauri desktop app for authorized practice, self-test, open problem environments, and personal algorithm workflows."
+  },
+  "plugins": {}
+}
