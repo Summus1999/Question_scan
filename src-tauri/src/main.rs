@@ -1,6 +1,7 @@
 mod commands;
 mod errors;
 mod runtime;
+mod screenshot;
 mod settings;
 mod shortcuts;
 mod tray;

@@ -66,6 +66,8 @@ export interface AppSettings {
   customCharactersPerSecond: number;
   globalShortcut: string;
   globalShortcutEnabled: boolean;
+  screenshotMaxLongEdge: number;
+  screenshotJpegQuality: number;
   saveHistory: boolean;
   launchToTray: boolean;
   theme: ThemePreference;
@@ -109,6 +111,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   customCharactersPerSecond: 24,
   globalShortcut: 'Ctrl+Shift+Q',
   globalShortcutEnabled: true,
+  screenshotMaxLongEdge: 1920,
+  screenshotJpegQuality: 85,
   saveHistory: false,
   launchToTray: false,
   theme: 'system',

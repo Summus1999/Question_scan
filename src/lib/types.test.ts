@@ -33,6 +33,8 @@ describe('shared frontend types', () => {
       customCharactersPerSecond: 24,
       globalShortcut: 'Ctrl+Shift+Q',
       globalShortcutEnabled: true,
+      screenshotMaxLongEdge: 1920,
+      screenshotJpegQuality: 85,
       saveHistory: false,
       launchToTray: false,
       theme: 'system',

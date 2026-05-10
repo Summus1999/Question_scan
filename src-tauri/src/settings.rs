@@ -1,5 +1,6 @@
 use crate::errors::{AppError, AppResult};
 use crate::runtime::RuntimeSnapshot;
+use crate::screenshot::ScreenshotCompressionConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -94,6 +95,10 @@ pub struct AppSettings {
     pub global_shortcut: String,
     #[serde(default = "default_global_shortcut_enabled")]
     pub global_shortcut_enabled: bool,
+    #[serde(default = "default_screenshot_max_long_edge")]
+    pub screenshot_max_long_edge: u32,
+    #[serde(default = "default_screenshot_jpeg_quality")]
+    pub screenshot_jpeg_quality: u8,
     pub save_history: bool,
     pub launch_to_tray: bool,
     pub theme: ThemePreference,
@@ -112,6 +117,8 @@ impl Default for AppSettings {
             custom_characters_per_second: 24,
             global_shortcut: "Ctrl+Shift+Q".to_string(),
             global_shortcut_enabled: true,
+            screenshot_max_long_edge: default_screenshot_max_long_edge(),
+            screenshot_jpeg_quality: default_screenshot_jpeg_quality(),
             save_history: false,
             launch_to_tray: false,
             theme: ThemePreference::System,
@@ -130,6 +137,16 @@ fn default_global_shortcut_enabled() -> bool {
     true
 }
 
+/// Keeps screenshot compression conservative enough for AI payloads without hurting readability.
+fn default_screenshot_max_long_edge() -> u32 {
+    1920
+}
+
+/// Keeps AI image uploads compact while preserving enough detail for problem statements.
+fn default_screenshot_jpeg_quality() -> u8 {
+    85
+}
+
 impl AppSettings {
     /// Trims user-editable string fields and repairs invalid custom speed values.
     pub fn sanitized(mut self) -> Self {
@@ -139,7 +156,31 @@ impl AppSettings {
         if self.custom_characters_per_second == 0 {
             self.custom_characters_per_second = 24;
         }
+        if self.screenshot_max_long_edge == 0 {
+            self.screenshot_max_long_edge = default_screenshot_max_long_edge();
+        }
+        if self.screenshot_jpeg_quality == 0 {
+            self.screenshot_jpeg_quality = default_screenshot_jpeg_quality();
+        } else {
+            self.screenshot_jpeg_quality = self.screenshot_jpeg_quality.clamp(1, 100);
+        }
         self
+    }
+
+    /// Exposes screenshot compression settings for the capture-to-AI pipeline.
+    pub fn screenshot_compression_config(&self) -> ScreenshotCompressionConfig {
+        ScreenshotCompressionConfig {
+            max_long_edge: if self.screenshot_max_long_edge == 0 {
+                default_screenshot_max_long_edge()
+            } else {
+                self.screenshot_max_long_edge
+            },
+            jpeg_quality: if self.screenshot_jpeg_quality == 0 {
+                default_screenshot_jpeg_quality()
+            } else {
+                self.screenshot_jpeg_quality.clamp(1, 100)
+            },
+        }
     }
 }
 
@@ -316,6 +357,8 @@ mod tests {
         assert_eq!(settings.custom_characters_per_second, 24);
         assert_eq!(settings.global_shortcut, "Ctrl+Shift+Q");
         assert!(settings.global_shortcut_enabled);
+        assert_eq!(settings.screenshot_max_long_edge, 1920);
+        assert_eq!(settings.screenshot_jpeg_quality, 85);
         assert!(!settings.save_history);
         assert!(!settings.launch_to_tray);
         assert_eq!(settings.theme, ThemePreference::System);
@@ -356,6 +399,8 @@ mod tests {
             custom_characters_per_second: 42,
             global_shortcut: "Alt+Shift+S".to_string(),
             global_shortcut_enabled: false,
+            screenshot_max_long_edge: 1600,
+            screenshot_jpeg_quality: 78,
             save_history: true,
             launch_to_tray: true,
             theme: ThemePreference::Dark,
@@ -377,6 +422,8 @@ mod tests {
         let mut updated = AppSettings::default();
         updated.global_shortcut = "Alt+Shift+S".to_string();
         updated.global_shortcut_enabled = false;
+        updated.screenshot_max_long_edge = 1280;
+        updated.screenshot_jpeg_quality = 72;
 
         store
             .update(updated.clone())
@@ -385,6 +432,8 @@ mod tests {
         let reloaded = SettingsStore::load(path);
         assert_eq!(reloaded.current().global_shortcut, "Alt+Shift+S");
         assert!(!reloaded.current().global_shortcut_enabled);
+        assert_eq!(reloaded.current().screenshot_max_long_edge, 1280);
+        assert_eq!(reloaded.current().screenshot_jpeg_quality, 72);
     }
 
     #[test]
@@ -411,7 +460,33 @@ mod tests {
 
         assert_eq!(store.current().provider_model, "legacy-model");
         assert!(store.current().global_shortcut_enabled);
+        assert_eq!(store.current().screenshot_max_long_edge, 1920);
+        assert_eq!(store.current().screenshot_jpeg_quality, 85);
         assert_eq!(store.current().ui_locale, UiLocale::ZhCn);
         assert_eq!(store.startup_warning(), None);
+    }
+
+    #[test]
+    fn sanitizes_invalid_screenshot_compression_settings() {
+        let mut settings = AppSettings::default();
+        settings.screenshot_max_long_edge = 0;
+        settings.screenshot_jpeg_quality = 0;
+
+        let sanitized = settings.sanitized();
+
+        assert_eq!(sanitized.screenshot_max_long_edge, 1920);
+        assert_eq!(sanitized.screenshot_jpeg_quality, 85);
+    }
+
+    #[test]
+    fn screenshot_compression_config_uses_defaults_for_zero_values() {
+        let mut settings = AppSettings::default();
+        settings.screenshot_max_long_edge = 0;
+        settings.screenshot_jpeg_quality = 0;
+
+        let config = settings.screenshot_compression_config();
+
+        assert_eq!(config.max_long_edge, 1920);
+        assert_eq!(config.jpeg_quality, 85);
     }
 }
