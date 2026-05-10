@@ -11,6 +11,7 @@ export const LANGUAGE_IDS = [
 
 export const OUTPUT_SPEEDS = ['fast', 'normal', 'slow', 'custom'] as const;
 export const THEME_PREFERENCES = ['system', 'light', 'dark'] as const;
+export const UI_LOCALES = ['zhCn', 'enUs'] as const;
 export const APP_STATUSES = ['loading', 'ready', 'warning', 'error'] as const;
 export const TRAY_STATUSES = [
   'idle',
@@ -39,6 +40,7 @@ export const AI_RESULT_STATES = [
 export type LanguageId = (typeof LANGUAGE_IDS)[number];
 export type OutputSpeed = (typeof OUTPUT_SPEEDS)[number];
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
+export type UiLocale = (typeof UI_LOCALES)[number];
 export type AppStatus = (typeof APP_STATUSES)[number];
 export type TrayStatus = (typeof TRAY_STATUSES)[number];
 export type ScreenshotState = (typeof SCREENSHOT_STATES)[number];
@@ -66,6 +68,7 @@ export interface AppSettings {
   saveHistory: boolean;
   launchToTray: boolean;
   theme: ThemePreference;
+  uiLocale: UiLocale;
 }
 
 export interface AppState extends RuntimeState {
@@ -104,6 +107,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   saveHistory: false,
   launchToTray: false,
   theme: 'system',
+  uiLocale: 'zhCn',
 };
 
 export const DEFAULT_APP_STATE: AppState = {

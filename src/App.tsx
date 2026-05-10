@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
+  Languages,
   Monitor,
   RefreshCw,
   RotateCcw,
@@ -26,6 +27,7 @@ import {
   showMainWindow,
   toggleMainWindow,
 } from './lib/api';
+import { getMessages } from './lib/i18n';
 import {
   type AppSettings,
   type AppState,
@@ -33,12 +35,22 @@ import {
   DEFAULT_SETTINGS,
   LANGUAGE_OPTIONS,
   OUTPUT_SPEED_OPTIONS,
+  UI_LOCALES,
 } from './lib/types';
 
 type BannerTone = 'neutral' | 'warning' | 'error';
 
 const panelClassName =
   'rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-200/60';
+
+// Repairs partial settings snapshots so older persisted files still get a UI locale.
+function normalizeSettings(settings: AppSettings): AppSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+    uiLocale: settings.uiLocale ?? DEFAULT_SETTINGS.uiLocale,
+  };
+}
 
 // Owns the stage-1 UI state bridge between React and the Tauri backend snapshot.
 function App() {
@@ -51,6 +63,18 @@ function App() {
     text: string;
   } | null>(null);
 
+  const messages = useMemo(() => getMessages(draft.uiLocale), [draft.uiLocale]);
+
+  // Keeps every backend snapshot aligned with the current frontend settings contract.
+  const applySnapshot = useCallback((snapshot: AppState) => {
+    const settings = normalizeSettings(snapshot.settings);
+    setState({
+      ...snapshot,
+      settings,
+    });
+    setDraft(settings);
+  }, []);
+
   // Reloads backend state and is the first place to inspect if startup hydration fails.
   const hydrate = useCallback(async () => {
     setIsBusy(true);
@@ -58,8 +82,7 @@ function App() {
 
     try {
       const snapshot = await loadAppState();
-      setState(snapshot);
-      setDraft(snapshot.settings);
+      applySnapshot(snapshot);
       if (snapshot.startupWarning) {
         setNotice({ tone: 'warning', text: snapshot.startupWarning });
       }
@@ -67,7 +90,7 @@ function App() {
       const fallbackMessage =
         error instanceof Error
           ? error.message
-          : 'The desktop backend did not respond.';
+          : messages.notices.backendNotResponding;
       setNotice({
         tone: 'error',
         text: fallbackMessage,
@@ -81,7 +104,7 @@ function App() {
     } finally {
       setIsBusy(false);
     }
-  }, []);
+  }, [applySnapshot, messages.notices.backendNotResponding]);
 
   useEffect(() => {
     void hydrate();
@@ -110,20 +133,19 @@ function App() {
 
     try {
       const snapshot = await saveSettings(draft);
-      setState(snapshot);
-      setDraft(snapshot.settings);
+      applySnapshot(snapshot);
       setNotice({
         tone: 'neutral',
-        text: 'Settings saved to the local config store.',
+        text: getMessages(draft.uiLocale).notices.saveSucceeded,
       });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Failed to save settings.';
+        error instanceof Error ? error.message : messages.notices.saveFailed;
       setNotice({ tone: 'error', text: message });
     } finally {
       setIsSaving(false);
     }
-  }, [draft]);
+  }, [applySnapshot, draft, messages.notices.saveFailed]);
 
   // Resets both backend settings and the local draft to the default profile.
   const handleReset = useCallback(async () => {
@@ -132,20 +154,19 @@ function App() {
 
     try {
       const snapshot = await resetSettings();
-      setState(snapshot);
-      setDraft(snapshot.settings);
+      applySnapshot(snapshot);
       setNotice({
         tone: 'neutral',
-        text: 'Settings were reset to the default local profile.',
+        text: getMessages(DEFAULT_SETTINGS.uiLocale).notices.resetSucceeded,
       });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Failed to reset settings.';
+        error instanceof Error ? error.message : messages.notices.resetFailed;
       setNotice({ tone: 'error', text: message });
     } finally {
       setIsSaving(false);
     }
-  }, []);
+  }, [applySnapshot, messages.notices.resetFailed]);
 
   // Centralizes window visibility commands so tray and header behavior stay comparable.
   const handleWindowAction = useCallback(
@@ -159,20 +180,29 @@ function App() {
             : action === 'hide'
               ? await hideMainWindow()
               : await toggleMainWindow();
-        setState(snapshot);
-        setDraft(snapshot.settings);
+        applySnapshot(snapshot);
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : 'Window action failed.';
+          error instanceof Error
+            ? error.message
+            : messages.notices.windowActionFailed;
         setNotice({ tone: 'error', text: message });
       }
     },
-    [],
+    [applySnapshot, messages.notices.windowActionFailed],
+  );
+
+  const outputSpeedOptions = useMemo(
+    () =>
+      OUTPUT_SPEED_OPTIONS.map((option) => ({
+        ...option,
+        label: messages.outputSpeed[option.value],
+      })),
+    [messages],
   );
 
   const currentSpeedLabel =
-    OUTPUT_SPEED_OPTIONS.find((option) => option.value === draft.outputSpeed)
-      ?.label ?? 'Normal';
+    messages.outputSpeed[draft.outputSpeed] ?? messages.outputSpeed.normal;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -182,51 +212,50 @@ function App() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-slate-500">
                 <SquareStack className="h-4 w-4" />
-                Question Scan
+                {messages.header.eyebrow}
               </div>
               <div className="space-y-1">
                 <h1 className="text-2xl font-semibold text-slate-950">
-                  Desktop shell
+                  {messages.header.title}
                 </h1>
                 <p className="max-w-3xl text-sm leading-6 text-slate-600">
-                  Tray-backed workspace, local settings storage, and an answer
-                  panel scaffold for the rest of the MVP.
+                  {messages.header.subtitle}
                 </p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill tone={state.status}>
-                {state.status === 'loading'
-                  ? 'Loading'
-                  : state.status === 'warning'
-                    ? 'Warning'
-                    : state.status === 'error'
-                      ? 'Error'
-                      : 'Ready'}
+                {messages.appStatus[state.status]}
               </StatusPill>
               <ActionButton
                 icon={<Monitor className="h-4 w-4" />}
-                label={state.windowVisible ? 'Hide window' : 'Show window'}
+                label={
+                  state.windowVisible
+                    ? messages.actions.hideWindow
+                    : messages.actions.showWindow
+                }
                 onClick={() =>
                   void handleWindowAction(state.windowVisible ? 'hide' : 'show')
                 }
               />
               <ActionButton
                 icon={<RefreshCw className="h-4 w-4" />}
-                label="Reload"
+                label={messages.actions.reload}
                 onClick={() => void hydrate()}
                 disabled={isBusy}
               />
               <ActionButton
                 icon={<RotateCcw className="h-4 w-4" />}
-                label="Reset"
+                label={messages.actions.reset}
                 onClick={() => void handleReset()}
                 disabled={isSaving}
               />
               <ActionButton
                 icon={<Save className="h-4 w-4" />}
-                label={isSaving ? 'Saving' : 'Save'}
+                label={
+                  isSaving ? messages.actions.saving : messages.actions.save
+                }
                 onClick={persist}
                 disabled={!isDirty || isSaving}
                 emphasis="primary"
@@ -236,11 +265,18 @@ function App() {
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <InfoTile
-              title="Window"
-              value={state.windowVisible ? 'Visible' : 'Hidden'}
+              title={messages.info.window}
+              value={
+                state.windowVisible
+                  ? messages.info.visible
+                  : messages.info.hidden
+              }
             />
-            <InfoTile title="Tray" value={state.trayStatus} />
-            <InfoTile title="Version" value={state.version} />
+            <InfoTile
+              title={messages.info.tray}
+              value={messages.trayStatus[state.trayStatus]}
+            />
+            <InfoTile title={messages.info.version} value={state.version} />
           </div>
         </header>
 
@@ -261,8 +297,8 @@ function App() {
           <section className={panelClassName}>
             <SectionTitle
               icon={<Settings2 className="h-4 w-4" />}
-              title="Settings"
-              subtitle="Local defaults, provider placeholders, and the shell-level options that later stages will expand."
+              title={messages.settings.title}
+              subtitle={messages.settings.subtitle}
             />
 
             <form
@@ -273,7 +309,48 @@ function App() {
               }}
             >
               <div className="grid gap-4 lg:grid-cols-2">
-                <Field label="Provider base URL" labelFor="provider-base-url">
+                <Field
+                  label={messages.fields.interfaceLanguage}
+                  labelFor="ui-locale"
+                >
+                  <div className="relative">
+                    <Languages className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <select
+                      id="ui-locale"
+                      className="field-input pl-9"
+                      value={draft.uiLocale}
+                      onChange={(event) =>
+                        updateField(
+                          'uiLocale',
+                          event.target.value as AppSettings['uiLocale'],
+                        )
+                      }
+                    >
+                      {UI_LOCALES.map((locale) => (
+                        <option key={locale} value={locale}>
+                          {messages.localeOptions[locale]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </Field>
+
+                <Field label={messages.fields.model} labelFor="provider-model">
+                  <input
+                    id="provider-model"
+                    className="field-input"
+                    value={draft.providerModel}
+                    onChange={(event) =>
+                      updateField('providerModel', event.target.value)
+                    }
+                    placeholder="gpt-4o-mini"
+                  />
+                </Field>
+
+                <Field
+                  label={messages.fields.providerBaseUrl}
+                  labelFor="provider-base-url"
+                >
                   <input
                     id="provider-base-url"
                     className="field-input"
@@ -286,19 +363,10 @@ function App() {
                   />
                 </Field>
 
-                <Field label="Model" labelFor="provider-model">
-                  <input
-                    id="provider-model"
-                    className="field-input"
-                    value={draft.providerModel}
-                    onChange={(event) =>
-                      updateField('providerModel', event.target.value)
-                    }
-                    placeholder="gpt-4o-mini"
-                  />
-                </Field>
-
-                <Field label="Default language" labelFor="default-language">
+                <Field
+                  label={messages.fields.defaultLanguage}
+                  labelFor="default-language"
+                >
                   <select
                     id="default-language"
                     className="field-input"
@@ -318,7 +386,10 @@ function App() {
                   </select>
                 </Field>
 
-                <Field label="Global shortcut" labelFor="global-shortcut">
+                <Field
+                  label={messages.fields.globalShortcut}
+                  labelFor="global-shortcut"
+                >
                   <input
                     id="global-shortcut"
                     className="field-input"
@@ -332,9 +403,9 @@ function App() {
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
-                <Field label="Output speed">
+                <Field label={messages.fields.outputSpeed}>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {OUTPUT_SPEED_OPTIONS.map((option) => (
+                    {outputSpeedOptions.map((option) => (
                       <button
                         key={option.value}
                         type="button"
@@ -351,7 +422,7 @@ function App() {
                         className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-slate-500"
                         htmlFor="custom-characters-per-second"
                       >
-                        Characters per second
+                        {messages.fields.charactersPerSecond}
                       </label>
                       <input
                         id="custom-characters-per-second"
@@ -371,19 +442,19 @@ function App() {
                   ) : null}
                 </Field>
 
-                <Field label="Presentation">
+                <Field label={messages.fields.presentation}>
                   <div className="grid gap-3">
                     <ToggleRow
-                      label="Save history"
-                      description="Store the local answer snapshot for later review."
+                      label={messages.settings.saveHistoryLabel}
+                      description={messages.settings.saveHistoryDescription}
                       checked={draft.saveHistory}
                       onChange={(checked) =>
                         updateField('saveHistory', checked)
                       }
                     />
                     <ToggleRow
-                      label="Launch to tray"
-                      description="Hide the window on launch and keep the app in the tray."
+                      label={messages.settings.launchToTrayLabel}
+                      description={messages.settings.launchToTrayDescription}
                       checked={draft.launchToTray}
                       onChange={(checked) =>
                         updateField('launchToTray', checked)
@@ -394,7 +465,7 @@ function App() {
               </div>
 
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-                <Field label="Theme">
+                <Field label={messages.fields.theme}>
                   <div className="grid grid-cols-3 gap-2">
                     {(['system', 'light', 'dark'] as const).map((theme) => (
                       <button
@@ -403,13 +474,13 @@ function App() {
                         className={`speed-chip ${draft.theme === theme ? 'speed-chip-active' : ''}`}
                         onClick={() => updateField('theme', theme)}
                       >
-                        {theme}
+                        {messages.theme[theme]}
                       </button>
                     ))}
                   </div>
                 </Field>
 
-                <Field label="Summary">
+                <Field label={messages.fields.summary}>
                   <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
                     <p className="font-medium text-slate-900">
                       {draft.defaultLanguage.toUpperCase()}
@@ -429,7 +500,7 @@ function App() {
                   disabled={isBusy}
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Reload
+                  {messages.actions.reload}
                 </button>
                 <button
                   className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -438,7 +509,7 @@ function App() {
                   disabled={isSaving}
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Reset defaults
+                  {messages.actions.resetDefaults}
                 </button>
                 <button
                   className="inline-flex items-center gap-2 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -446,7 +517,9 @@ function App() {
                   disabled={!isDirty || isSaving}
                 >
                   <Save className="h-4 w-4" />
-                  {isSaving ? 'Saving...' : 'Save settings'}
+                  {isSaving
+                    ? messages.actions.savingEllipsis
+                    : messages.actions.saveSettings}
                 </button>
               </div>
             </form>
@@ -455,28 +528,38 @@ function App() {
           <section className={panelClassName}>
             <SectionTitle
               icon={<Activity className="h-4 w-4" />}
-              title="Runtime snapshot"
-              subtitle="A live summary of the current local state that the later capture and AI flows will extend."
+              title={messages.runtime.title}
+              subtitle={messages.runtime.subtitle}
             />
 
             <div className="mt-5 grid gap-3">
-              <SummaryLine label="Startup status" value={state.status} />
-              <SummaryLine label="Tray status" value={state.trayStatus} />
               <SummaryLine
-                label="Screenshot state"
-                value={state.screenshotState}
+                label={messages.runtime.startupStatus}
+                value={messages.appStatus[state.status]}
               />
               <SummaryLine
-                label="AI result state"
-                value={state.aiResultState}
+                label={messages.runtime.trayStatus}
+                value={messages.trayStatus[state.trayStatus]}
               />
               <SummaryLine
-                label="Settings path"
-                value={state.settingsPath || 'Not resolved yet'}
+                label={messages.runtime.screenshotState}
+                value={messages.screenshotState[state.screenshotState]}
               />
               <SummaryLine
-                label="Window visible"
-                value={String(state.windowVisible)}
+                label={messages.runtime.aiResultState}
+                value={messages.aiResultState[state.aiResultState]}
+              />
+              <SummaryLine
+                label={messages.runtime.settingsPath}
+                value={state.settingsPath || messages.info.notResolved}
+              />
+              <SummaryLine
+                label={messages.runtime.windowVisible}
+                value={
+                  state.windowVisible
+                    ? messages.info.visible
+                    : messages.info.hidden
+                }
               />
             </div>
 
@@ -484,11 +567,10 @@ function App() {
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">
-                    Placeholder result surface
+                    {messages.result.title}
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                    This area is intentionally empty for stage 1. Later stages
-                    will mount capture, recognition, and answer output here.
+                    {messages.result.body}
                   </p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -514,8 +596,7 @@ function App() {
         </div>
 
         <footer className="pb-2 text-xs text-slate-500">
-          Stage 1 only: app shell, tray, settings persistence, and error
-          reporting. No capture or AI integration is wired yet.
+          {messages.footer}
         </footer>
       </main>
     </div>

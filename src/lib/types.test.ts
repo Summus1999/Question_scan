@@ -11,6 +11,7 @@ import {
   SCREENSHOT_STATES,
   THEME_PREFERENCES,
   TRAY_STATUSES,
+  UI_LOCALES,
 } from './types';
 
 describe('shared frontend types', () => {
@@ -34,6 +35,7 @@ describe('shared frontend types', () => {
       saveHistory: false,
       launchToTray: false,
       theme: 'system',
+      uiLocale: 'zhCn',
     });
   });
 
@@ -63,6 +65,7 @@ describe('shared frontend types', () => {
       'failed',
     ]);
     expect(THEME_PREFERENCES).toEqual(['system', 'light', 'dark']);
+    expect(UI_LOCALES).toEqual(['zhCn', 'enUs']);
     expect(DEFAULT_APP_STATE).toMatchObject({
       status: 'loading',
       trayStatus: 'idle',

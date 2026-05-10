@@ -36,6 +36,13 @@ pub enum ThemePreference {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum UiLocale {
+    ZhCn,
+    EnUs,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum AppStatus {
     Loading,
     Ready,
@@ -87,6 +94,8 @@ pub struct AppSettings {
     pub save_history: bool,
     pub launch_to_tray: bool,
     pub theme: ThemePreference,
+    #[serde(default = "default_ui_locale")]
+    pub ui_locale: UiLocale,
 }
 
 impl Default for AppSettings {
@@ -102,8 +111,14 @@ impl Default for AppSettings {
             save_history: false,
             launch_to_tray: false,
             theme: ThemePreference::System,
+            ui_locale: UiLocale::ZhCn,
         }
     }
+}
+
+/// Preserves old settings files that predate the explicit interface language.
+fn default_ui_locale() -> UiLocale {
+    UiLocale::ZhCn
 }
 
 impl AppSettings {
@@ -286,6 +301,7 @@ mod tests {
         assert!(!settings.save_history);
         assert!(!settings.launch_to_tray);
         assert_eq!(settings.theme, ThemePreference::System);
+        assert_eq!(settings.ui_locale, UiLocale::ZhCn);
     }
 
     #[test]
@@ -324,6 +340,7 @@ mod tests {
             save_history: true,
             launch_to_tray: true,
             theme: ThemePreference::Dark,
+            ui_locale: UiLocale::EnUs,
         };
         let expected = updated.clone().sanitized();
 
@@ -332,5 +349,32 @@ mod tests {
         let reloaded = SettingsStore::load(path);
         assert_eq!(reloaded.current(), expected);
         assert_eq!(reloaded.startup_warning(), None);
+    }
+
+    #[test]
+    fn load_legacy_settings_defaults_interface_language() {
+        let path = temp_path("legacy-locale");
+        fs::create_dir_all(path.parent().expect("parent path")).expect("create temp dir");
+        fs::write(
+            &path,
+            r#"{
+              "providerBaseUrl": "https://example.com/v1",
+              "providerModel": "legacy-model",
+              "defaultLanguage": "cpp20",
+              "outputSpeed": "normal",
+              "customCharactersPerSecond": 24,
+              "globalShortcut": "Ctrl+Shift+Q",
+              "saveHistory": false,
+              "launchToTray": false,
+              "theme": "system"
+            }"#,
+        )
+        .expect("write legacy file");
+
+        let store = SettingsStore::load(path);
+
+        assert_eq!(store.current().provider_model, "legacy-model");
+        assert_eq!(store.current().ui_locale, UiLocale::ZhCn);
+        assert_eq!(store.startup_warning(), None);
     }
 }

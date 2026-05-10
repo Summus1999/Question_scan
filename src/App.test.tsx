@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { DEFAULT_APP_STATE, DEFAULT_SETTINGS } from './lib/types';
@@ -33,7 +33,7 @@ describe('App shell', () => {
     vi.clearAllMocks();
   });
 
-  it('renders the stage 1 shell after loading the app snapshot', async () => {
+  it('renders the stage 1 shell in Chinese by default after loading the app snapshot', async () => {
     loadAppStateMock.mockResolvedValue({
       ...DEFAULT_APP_STATE,
       status: 'ready',
@@ -47,17 +47,53 @@ describe('App shell', () => {
 
     render(<App />);
 
-    expect(screen.getByText('Desktop shell')).toBeInTheDocument();
+    expect(screen.getByText('桌面应用底座')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Provider base URL')).toHaveValue(
+      expect(screen.getByLabelText('服务 Base URL')).toHaveValue(
         DEFAULT_SETTINGS.providerBaseUrl,
       );
     });
 
-    expect(screen.getByLabelText('Model')).toHaveValue('qwen-max');
-    expect(screen.getByText('Runtime snapshot')).toBeInTheDocument();
-    expect(screen.getByText('Settings')).toBeInTheDocument();
-    expect(screen.getByText('Placeholder result surface')).toBeInTheDocument();
+    expect(screen.getByLabelText('模型')).toHaveValue('qwen-max');
+    expect(screen.getByLabelText('界面语言')).toHaveValue('zhCn');
+    expect(screen.getByText('运行状态快照')).toBeInTheDocument();
+    expect(screen.getByText('设置')).toBeInTheDocument();
+    expect(screen.getByText('结果面板占位')).toBeInTheDocument();
+  });
+
+  it('switches the visible shell language to English and persists the locale', async () => {
+    loadAppStateMock.mockResolvedValue({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      settings: DEFAULT_SETTINGS,
+    });
+    saveSettingsMock.mockImplementation(async (settings) => ({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      settings,
+    }));
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('界面语言')).toHaveValue('zhCn');
+    });
+
+    fireEvent.change(screen.getByLabelText('界面语言'), {
+      target: { value: 'enUs' },
+    });
+
+    expect(screen.getByText('Desktop shell')).toBeInTheDocument();
+    expect(screen.getByLabelText('Interface language')).toHaveValue('enUs');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+
+    await waitFor(() => {
+      expect(saveSettingsMock).toHaveBeenCalledWith({
+        ...DEFAULT_SETTINGS,
+        uiLocale: 'enUs',
+      });
+    });
   });
 });
