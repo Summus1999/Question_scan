@@ -1,7 +1,8 @@
 use crate::errors::{AppError, AppResult};
+use crate::runtime::RuntimeSnapshot;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Mutex, RwLock};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -91,6 +92,8 @@ pub struct AppSettings {
     pub output_speed: OutputSpeed,
     pub custom_characters_per_second: u32,
     pub global_shortcut: String,
+    #[serde(default = "default_global_shortcut_enabled")]
+    pub global_shortcut_enabled: bool,
     pub save_history: bool,
     pub launch_to_tray: bool,
     pub theme: ThemePreference,
@@ -108,6 +111,7 @@ impl Default for AppSettings {
             output_speed: OutputSpeed::Normal,
             custom_characters_per_second: 24,
             global_shortcut: "Ctrl+Shift+Q".to_string(),
+            global_shortcut_enabled: true,
             save_history: false,
             launch_to_tray: false,
             theme: ThemePreference::System,
@@ -119,6 +123,11 @@ impl Default for AppSettings {
 /// Preserves old settings files that predate the explicit interface language.
 fn default_ui_locale() -> UiLocale {
     UiLocale::ZhCn
+}
+
+/// Keeps legacy settings files active when they predate the shortcut toggle.
+fn default_global_shortcut_enabled() -> bool {
+    true
 }
 
 impl AppSettings {
@@ -146,6 +155,9 @@ pub struct AppSnapshot {
     pub startup_warning: Option<String>,
     pub window_visible: bool,
     pub version: String,
+    pub global_shortcut_registered: bool,
+    pub global_shortcut_error: Option<String>,
+    pub global_shortcut_trigger_count: u64,
 }
 
 #[derive(Debug)]
@@ -193,11 +205,6 @@ impl SettingsStore {
         }
     }
 
-    /// Exposes the resolved settings path for diagnostics and the runtime snapshot panel.
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
     /// Returns a cloned settings copy so callers never hold the read lock.
     pub fn current(&self) -> AppSettings {
         self.settings
@@ -229,22 +236,32 @@ impl SettingsStore {
     }
 
     /// Builds the complete frontend snapshot from persisted settings and transient runtime state.
-    pub fn snapshot(&self, window_visible: bool, version: impl Into<String>) -> AppSnapshot {
-        let warning = self.startup_warning();
+    pub fn snapshot(
+        &self,
+        window_visible: bool,
+        version: impl Into<String>,
+        runtime: RuntimeSnapshot,
+    ) -> AppSnapshot {
+        let warning = self
+            .startup_warning()
+            .or_else(|| runtime.global_shortcut_error.clone());
         AppSnapshot {
             status: if warning.is_some() {
                 AppStatus::Warning
             } else {
                 AppStatus::Ready
             },
-            tray_status: TrayStatus::Idle,
-            screenshot_state: ScreenshotState::Idle,
-            ai_result_state: AiResultState::Idle,
+            tray_status: runtime.tray_status,
+            screenshot_state: runtime.screenshot_state,
+            ai_result_state: runtime.ai_result_state,
             settings: self.current(),
             settings_path: self.path.display().to_string(),
             startup_warning: warning,
             window_visible,
             version: version.into(),
+            global_shortcut_registered: runtime.global_shortcut_registered,
+            global_shortcut_error: runtime.global_shortcut_error,
+            global_shortcut_trigger_count: runtime.global_shortcut_trigger_count,
         }
     }
 
@@ -298,6 +315,7 @@ mod tests {
         assert_eq!(settings.output_speed, OutputSpeed::Normal);
         assert_eq!(settings.custom_characters_per_second, 24);
         assert_eq!(settings.global_shortcut, "Ctrl+Shift+Q");
+        assert!(settings.global_shortcut_enabled);
         assert!(!settings.save_history);
         assert!(!settings.launch_to_tray);
         assert_eq!(settings.theme, ThemePreference::System);
@@ -311,7 +329,7 @@ mod tests {
 
         assert_eq!(store.current(), AppSettings::default());
         assert_eq!(store.startup_warning(), None);
-        assert_eq!(store.path(), path.as_path());
+        assert_eq!(store.path, path);
     }
 
     #[test]
@@ -337,6 +355,7 @@ mod tests {
             output_speed: OutputSpeed::Custom,
             custom_characters_per_second: 42,
             global_shortcut: "Alt+Shift+S".to_string(),
+            global_shortcut_enabled: false,
             save_history: true,
             launch_to_tray: true,
             theme: ThemePreference::Dark,
@@ -349,6 +368,23 @@ mod tests {
         let reloaded = SettingsStore::load(path);
         assert_eq!(reloaded.current(), expected);
         assert_eq!(reloaded.startup_warning(), None);
+    }
+
+    #[test]
+    fn disabled_global_shortcut_setting_round_trips() {
+        let path = temp_path("shortcut-disabled");
+        let store = SettingsStore::load(path.clone());
+        let mut updated = AppSettings::default();
+        updated.global_shortcut = "Alt+Shift+S".to_string();
+        updated.global_shortcut_enabled = false;
+
+        store
+            .update(updated.clone())
+            .expect("save disabled shortcut");
+
+        let reloaded = SettingsStore::load(path);
+        assert_eq!(reloaded.current().global_shortcut, "Alt+Shift+S");
+        assert!(!reloaded.current().global_shortcut_enabled);
     }
 
     #[test]
@@ -374,6 +410,7 @@ mod tests {
         let store = SettingsStore::load(path);
 
         assert_eq!(store.current().provider_model, "legacy-model");
+        assert!(store.current().global_shortcut_enabled);
         assert_eq!(store.current().ui_locale, UiLocale::ZhCn);
         assert_eq!(store.startup_warning(), None);
     }

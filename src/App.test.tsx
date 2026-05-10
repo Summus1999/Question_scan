@@ -10,6 +10,9 @@ const {
   showMainWindowMock,
   hideMainWindowMock,
   toggleMainWindowMock,
+  listenGlobalShortcutTriggeredMock,
+  listenOpenSettingsMock,
+  listenRuntimeStateChangedMock,
 } = vi.hoisted(() => ({
   loadAppStateMock: vi.fn(),
   saveSettingsMock: vi.fn(),
@@ -17,6 +20,9 @@ const {
   showMainWindowMock: vi.fn(),
   hideMainWindowMock: vi.fn(),
   toggleMainWindowMock: vi.fn(),
+  listenGlobalShortcutTriggeredMock: vi.fn(),
+  listenOpenSettingsMock: vi.fn(),
+  listenRuntimeStateChangedMock: vi.fn(),
 }));
 
 vi.mock('./lib/api', () => ({
@@ -26,11 +32,17 @@ vi.mock('./lib/api', () => ({
   showMainWindow: showMainWindowMock,
   hideMainWindow: hideMainWindowMock,
   toggleMainWindow: toggleMainWindowMock,
+  listenGlobalShortcutTriggered: listenGlobalShortcutTriggeredMock,
+  listenOpenSettings: listenOpenSettingsMock,
+  listenRuntimeStateChanged: listenRuntimeStateChangedMock,
 }));
 
 describe('App shell', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    listenGlobalShortcutTriggeredMock.mockResolvedValue(vi.fn());
+    listenOpenSettingsMock.mockResolvedValue(vi.fn());
+    listenRuntimeStateChangedMock.mockResolvedValue(vi.fn());
   });
 
   it('renders the stage 1 shell in Chinese by default after loading the app snapshot', async () => {
@@ -57,6 +69,8 @@ describe('App shell', () => {
 
     expect(screen.getByLabelText('模型')).toHaveValue('qwen-max');
     expect(screen.getByLabelText('界面语言')).toHaveValue('zhCn');
+    expect(screen.getByLabelText('全局快捷键')).toHaveValue('Ctrl+Shift+Q');
+    expect(screen.getByText('启用全局快捷键')).toBeInTheDocument();
     expect(screen.getByText('运行状态快照')).toBeInTheDocument();
     expect(screen.getByText('设置')).toBeInTheDocument();
     expect(screen.getByText('结果面板占位')).toBeInTheDocument();
@@ -94,6 +108,67 @@ describe('App shell', () => {
         ...DEFAULT_SETTINGS,
         uiLocale: 'enUs',
       });
+    });
+  });
+
+  it('persists a disabled custom shortcut setting', async () => {
+    loadAppStateMock.mockResolvedValue({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      settings: DEFAULT_SETTINGS,
+    });
+    saveSettingsMock.mockImplementation(async (settings) => ({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      settings,
+    }));
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('全局快捷键')).toHaveValue('Ctrl+Shift+Q');
+    });
+
+    fireEvent.change(screen.getByLabelText('全局快捷键'), {
+      target: { value: 'Alt+Shift+S' },
+    });
+    fireEvent.click(screen.getByLabelText(/启用全局快捷键/));
+    fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
+
+    await waitFor(() => {
+      expect(saveSettingsMock).toHaveBeenCalledWith({
+        ...DEFAULT_SETTINGS,
+        globalShortcut: 'Alt+Shift+S',
+        globalShortcutEnabled: false,
+      });
+    });
+  });
+
+  it('shows backend shortcut conflict messages returned from Rust', async () => {
+    loadAppStateMock.mockResolvedValue({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      settings: DEFAULT_SETTINGS,
+    });
+    saveSettingsMock.mockRejectedValue({
+      code: 'globalShortcutRegistrationFailed',
+      message:
+        'The global shortcut `Ctrl+Shift+Q` could not be registered. It may already be used by the system or another app.',
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('全局快捷键')).toHaveValue('Ctrl+Shift+Q');
+    });
+
+    fireEvent.change(screen.getByLabelText('模型'), {
+      target: { value: 'changed-model' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/could not be registered/)).toBeInTheDocument();
     });
   });
 });

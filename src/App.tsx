@@ -17,10 +17,14 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
   hideMainWindow,
+  listenGlobalShortcutTriggered,
+  listenOpenSettings,
+  listenRuntimeStateChanged,
   loadAppState,
   resetSettings,
   saveSettings,
@@ -54,6 +58,7 @@ function normalizeSettings(settings: AppSettings): AppSettings {
 
 // Owns the stage-1 UI state bridge between React and the Tauri backend snapshot.
 function App() {
+  const settingsSectionRef = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<AppState>(DEFAULT_APP_STATE);
   const [draft, setDraft] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isBusy, setIsBusy] = useState(true);
@@ -64,6 +69,25 @@ function App() {
   } | null>(null);
 
   const messages = useMemo(() => getMessages(draft.uiLocale), [draft.uiLocale]);
+
+  // Converts serialized Tauri command errors into user-facing copy when Rust supplies it.
+  const errorMessage = useCallback((error: unknown, fallback: string) => {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    if (
+      error &&
+      typeof error === 'object' &&
+      'message' in error &&
+      typeof error.message === 'string'
+    ) {
+      return error.message;
+    }
+    return fallback;
+  }, []);
 
   // Keeps every backend snapshot aligned with the current frontend settings contract.
   const applySnapshot = useCallback((snapshot: AppState) => {
@@ -83,14 +107,15 @@ function App() {
     try {
       const snapshot = await loadAppState();
       applySnapshot(snapshot);
-      if (snapshot.startupWarning) {
-        setNotice({ tone: 'warning', text: snapshot.startupWarning });
+      const warning = snapshot.startupWarning ?? snapshot.globalShortcutError;
+      if (warning) {
+        setNotice({ tone: 'warning', text: warning });
       }
     } catch (error) {
-      const fallbackMessage =
-        error instanceof Error
-          ? error.message
-          : messages.notices.backendNotResponding;
+      const fallbackMessage = errorMessage(
+        error,
+        messages.notices.backendNotResponding,
+      );
       setNotice({
         tone: 'error',
         text: fallbackMessage,
@@ -104,11 +129,69 @@ function App() {
     } finally {
       setIsBusy(false);
     }
-  }, [applySnapshot, messages.notices.backendNotResponding]);
+  }, [applySnapshot, errorMessage, messages.notices.backendNotResponding]);
 
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const unlisteners: Array<() => void> = [];
+
+    async function wireRuntimeEvents() {
+      try {
+        const [unlistenShortcut, unlistenSettings, unlistenRuntime] =
+          await Promise.all([
+            listenGlobalShortcutTriggered(async () => {
+              await hydrate();
+              setNotice({
+                tone: 'neutral',
+                text: messages.notices.shortcutTriggered,
+              });
+            }),
+            listenOpenSettings(async () => {
+              await hydrate();
+              settingsSectionRef.current?.scrollIntoView?.({
+                block: 'start',
+              });
+            }),
+            listenRuntimeStateChanged(async () => {
+              await hydrate();
+            }),
+          ]);
+
+        if (cancelled) {
+          unlistenShortcut();
+          unlistenSettings();
+          unlistenRuntime();
+          return;
+        }
+
+        unlisteners.push(unlistenShortcut, unlistenSettings, unlistenRuntime);
+      } catch (error) {
+        const message = errorMessage(
+          error,
+          messages.notices.shortcutListenerFailed,
+        );
+        setNotice({ tone: 'error', text: message });
+      }
+    }
+
+    void wireRuntimeEvents();
+
+    return () => {
+      cancelled = true;
+      for (const unlisten of unlisteners) {
+        unlisten();
+      }
+    };
+  }, [
+    errorMessage,
+    hydrate,
+    messages.notices.shortcutListenerFailed,
+    messages.notices.shortcutTriggered,
+  ]);
 
   const isDirty = useMemo(
     () => JSON.stringify(draft) !== JSON.stringify(state.settings),
@@ -139,13 +222,12 @@ function App() {
         text: getMessages(draft.uiLocale).notices.saveSucceeded,
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : messages.notices.saveFailed;
+      const message = errorMessage(error, messages.notices.saveFailed);
       setNotice({ tone: 'error', text: message });
     } finally {
       setIsSaving(false);
     }
-  }, [applySnapshot, draft, messages.notices.saveFailed]);
+  }, [applySnapshot, draft, errorMessage, messages.notices.saveFailed]);
 
   // Resets both backend settings and the local draft to the default profile.
   const handleReset = useCallback(async () => {
@@ -160,13 +242,12 @@ function App() {
         text: getMessages(DEFAULT_SETTINGS.uiLocale).notices.resetSucceeded,
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : messages.notices.resetFailed;
+      const message = errorMessage(error, messages.notices.resetFailed);
       setNotice({ tone: 'error', text: message });
     } finally {
       setIsSaving(false);
     }
-  }, [applySnapshot, messages.notices.resetFailed]);
+  }, [applySnapshot, errorMessage, messages.notices.resetFailed]);
 
   // Centralizes window visibility commands so tray and header behavior stay comparable.
   const handleWindowAction = useCallback(
@@ -182,14 +263,14 @@ function App() {
               : await toggleMainWindow();
         applySnapshot(snapshot);
       } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : messages.notices.windowActionFailed;
+        const message = errorMessage(
+          error,
+          messages.notices.windowActionFailed,
+        );
         setNotice({ tone: 'error', text: message });
       }
     },
-    [applySnapshot, messages.notices.windowActionFailed],
+    [applySnapshot, errorMessage, messages.notices.windowActionFailed],
   );
 
   const outputSpeedOptions = useMemo(
@@ -294,7 +375,7 @@ function App() {
         ) : null}
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
-          <section className={panelClassName}>
+          <section className={panelClassName} ref={settingsSectionRef}>
             <SectionTitle
               icon={<Settings2 className="h-4 w-4" />}
               title={messages.settings.title}
@@ -398,6 +479,7 @@ function App() {
                       updateField('globalShortcut', event.target.value)
                     }
                     placeholder="Ctrl+Shift+Q"
+                    disabled={!draft.globalShortcutEnabled}
                   />
                 </Field>
               </div>
@@ -444,6 +526,14 @@ function App() {
 
                 <Field label={messages.fields.presentation}>
                   <div className="grid gap-3">
+                    <ToggleRow
+                      label={messages.settings.shortcutEnabledLabel}
+                      description={messages.settings.shortcutEnabledDescription}
+                      checked={draft.globalShortcutEnabled}
+                      onChange={(checked) =>
+                        updateField('globalShortcutEnabled', checked)
+                      }
+                    />
                     <ToggleRow
                       label={messages.settings.saveHistoryLabel}
                       description={messages.settings.saveHistoryDescription}
@@ -561,6 +651,26 @@ function App() {
                     : messages.info.hidden
                 }
               />
+              <SummaryLine
+                label={messages.fields.globalShortcutEnabled}
+                value={
+                  state.settings.globalShortcutEnabled
+                    ? messages.appStatus.ready
+                    : messages.info.hidden
+                }
+              />
+              <SummaryLine
+                label={messages.fields.globalShortcut}
+                value={
+                  state.globalShortcutRegistered
+                    ? state.settings.globalShortcut
+                    : state.globalShortcutError || messages.info.notResolved
+                }
+              />
+              <SummaryLine
+                label={messages.runtime.shortcutTriggers}
+                value={String(state.globalShortcutTriggerCount)}
+              />
             </div>
 
             <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -586,6 +696,10 @@ function App() {
                     settings: state.settings,
                     settingsPath: state.settingsPath,
                     startupWarning: state.startupWarning,
+                    globalShortcutRegistered: state.globalShortcutRegistered,
+                    globalShortcutError: state.globalShortcutError,
+                    globalShortcutTriggerCount:
+                      state.globalShortcutTriggerCount,
                   },
                   null,
                   2,

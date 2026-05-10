@@ -32,6 +32,7 @@ describe('shared frontend types', () => {
       outputSpeed: 'normal',
       customCharactersPerSecond: 24,
       globalShortcut: 'Ctrl+Shift+Q',
+      globalShortcutEnabled: true,
       saveHistory: false,
       launchToTray: false,
       theme: 'system',
@@ -72,6 +73,9 @@ describe('shared frontend types', () => {
       screenshotState: 'idle',
       aiResultState: 'idle',
       windowVisible: true,
+      globalShortcutRegistered: false,
+      globalShortcutError: null,
+      globalShortcutTriggerCount: 0,
     });
   });
 });

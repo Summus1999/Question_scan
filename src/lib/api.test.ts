@@ -1,21 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BACKEND_COMMANDS,
+  FRONTEND_EVENTS,
   hideMainWindow,
+  listenGlobalShortcutTriggered,
+  listenOpenSettings,
+  listenRuntimeStateChanged,
   loadAppState,
   resetSettings,
   saveSettings,
+  setTrayStatus,
   showMainWindow,
   toggleMainWindow,
 } from './api';
 import { DEFAULT_SETTINGS } from './types';
 
-const { invokeMock } = vi.hoisted(() => ({
+const { invokeMock, listenMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
+  listenMock: vi.fn(),
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: invokeMock,
+}));
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: listenMock,
 }));
 
 describe('Tauri API wrappers', () => {
@@ -31,6 +41,7 @@ describe('Tauri API wrappers', () => {
       'show_main_window',
       'hide_main_window',
       'toggle_main_window',
+      'set_tray_status',
     ]);
   });
 
@@ -50,6 +61,7 @@ describe('Tauri API wrappers', () => {
     await showMainWindow();
     await hideMainWindow();
     await toggleMainWindow();
+    await setTrayStatus('generating');
 
     expect(invokeMock).toHaveBeenNthCalledWith(1, 'save_settings', {
       settings: DEFAULT_SETTINGS,
@@ -58,5 +70,34 @@ describe('Tauri API wrappers', () => {
     expect(invokeMock).toHaveBeenNthCalledWith(3, 'show_main_window');
     expect(invokeMock).toHaveBeenNthCalledWith(4, 'hide_main_window');
     expect(invokeMock).toHaveBeenNthCalledWith(5, 'toggle_main_window');
+    expect(invokeMock).toHaveBeenNthCalledWith(6, 'set_tray_status', {
+      status: 'generating',
+    });
+  });
+
+  it('registers frontend listeners for backend runtime events', async () => {
+    const unlisten = vi.fn();
+    listenMock.mockResolvedValue(unlisten);
+    const handler = vi.fn();
+
+    await listenGlobalShortcutTriggered(handler);
+    await listenOpenSettings(handler);
+    await listenRuntimeStateChanged(handler);
+
+    expect(listenMock).toHaveBeenNthCalledWith(
+      1,
+      FRONTEND_EVENTS.globalShortcutTriggered,
+      handler,
+    );
+    expect(listenMock).toHaveBeenNthCalledWith(
+      2,
+      FRONTEND_EVENTS.openSettings,
+      handler,
+    );
+    expect(listenMock).toHaveBeenNthCalledWith(
+      3,
+      FRONTEND_EVENTS.runtimeStateChanged,
+      handler,
+    );
   });
 });

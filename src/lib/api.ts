@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AppSettings, AppState } from './types';
+import { type Event, listen, type UnlistenFn } from '@tauri-apps/api/event';
+import type { AppSettings, AppState, TrayStatus } from './types';
 
 export const BACKEND_COMMANDS = {
   loadAppState: 'load_app_state',
@@ -8,6 +9,13 @@ export const BACKEND_COMMANDS = {
   showMainWindow: 'show_main_window',
   hideMainWindow: 'hide_main_window',
   toggleMainWindow: 'toggle_main_window',
+  setTrayStatus: 'set_tray_status',
+} as const;
+
+export const FRONTEND_EVENTS = {
+  globalShortcutTriggered: 'question-scan:global-shortcut-triggered',
+  openSettings: 'question-scan:open-settings',
+  runtimeStateChanged: 'question-scan:runtime-state-changed',
 } as const;
 
 type BackendCommandSpec = {
@@ -35,6 +43,19 @@ type BackendCommandSpec = {
     payload: undefined;
     response: AppState;
   };
+  [BACKEND_COMMANDS.setTrayStatus]: {
+    payload: { status: TrayStatus };
+    response: AppState;
+  };
+};
+
+export type GlobalShortcutTriggeredPayload = {
+  shortcut: string;
+  triggerCount: number;
+};
+
+export type RuntimeStateChangedPayload = {
+  reason: string;
 };
 
 export type BackendCommandName = keyof BackendCommandSpec;
@@ -85,4 +106,39 @@ export function hideMainWindow(): Promise<AppState> {
 // Toggles visibility through Rust so header controls and tray actions share behavior.
 export function toggleMainWindow(): Promise<AppState> {
   return invokeBackend(BACKEND_COMMANDS.toggleMainWindow);
+}
+
+// Updates the tray phase from frontend-owned flows that are added after stage 2.
+export function setTrayStatus(status: TrayStatus): Promise<AppState> {
+  return invokeBackend(BACKEND_COMMANDS.setTrayStatus, { status });
+}
+
+// Refreshes frontend state when Rust records a global shortcut trigger.
+export function listenGlobalShortcutTriggered(
+  handler: (event: Event<GlobalShortcutTriggeredPayload>) => void,
+): Promise<UnlistenFn> {
+  return listen<GlobalShortcutTriggeredPayload>(
+    FRONTEND_EVENTS.globalShortcutTriggered,
+    handler,
+  );
+}
+
+// Lets the tray jump to the settings surface without exposing tray internals to React.
+export function listenOpenSettings(
+  handler: (event: Event<RuntimeStateChangedPayload>) => void,
+): Promise<UnlistenFn> {
+  return listen<RuntimeStateChangedPayload>(
+    FRONTEND_EVENTS.openSettings,
+    handler,
+  );
+}
+
+// Covers tray-only mutations such as enabling or disabling the shortcut.
+export function listenRuntimeStateChanged(
+  handler: (event: Event<RuntimeStateChangedPayload>) => void,
+): Promise<UnlistenFn> {
+  return listen<RuntimeStateChangedPayload>(
+    FRONTEND_EVENTS.runtimeStateChanged,
+    handler,
+  );
 }

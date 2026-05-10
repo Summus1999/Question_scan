@@ -1,12 +1,17 @@
 use crate::errors::{AppError, AppResult};
+use crate::runtime::RuntimeStore;
 use crate::settings::{AppSettings, AppSnapshot, SettingsStore};
+use crate::{shortcuts, tray};
 use tauri::{AppHandle, Manager, State};
 
 /// Returns the full state payload consumed by the React shell during startup and reload.
 #[tauri::command]
-pub fn load_app_state(app: AppHandle, store: State<'_, SettingsStore>) -> AppResult<AppSnapshot> {
-    let visible = window_visible(&app)?;
-    Ok(store.snapshot(visible, app.package_info().version.to_string()))
+pub fn load_app_state(
+    app: AppHandle,
+    store: State<'_, SettingsStore>,
+    runtime: State<'_, RuntimeStore>,
+) -> AppResult<AppSnapshot> {
+    snapshot(&app, &store, &runtime)
 }
 
 /// Persists user settings and returns a fresh snapshot so the frontend can re-sync.
@@ -14,35 +19,50 @@ pub fn load_app_state(app: AppHandle, store: State<'_, SettingsStore>) -> AppRes
 pub fn save_settings(
     app: AppHandle,
     store: State<'_, SettingsStore>,
+    runtime: State<'_, RuntimeStore>,
     settings: AppSettings,
 ) -> AppResult<AppSnapshot> {
+    let settings = settings.sanitized();
+    shortcuts::sync_global_shortcut(&app, &settings, &runtime)?;
     store.update(settings)?;
-    let visible = window_visible(&app)?;
-    Ok(store.snapshot(visible, app.package_info().version.to_string()))
+    tray::sync_tray(&app)?;
+    snapshot(&app, &store, &runtime)
 }
 
 /// Restores default settings and returns the same snapshot contract as a save.
 #[tauri::command]
-pub fn reset_settings(app: AppHandle, store: State<'_, SettingsStore>) -> AppResult<AppSnapshot> {
+pub fn reset_settings(
+    app: AppHandle,
+    store: State<'_, SettingsStore>,
+    runtime: State<'_, RuntimeStore>,
+) -> AppResult<AppSnapshot> {
+    let settings = AppSettings::default();
+    shortcuts::sync_global_shortcut(&app, &settings, &runtime)?;
     store.reset()?;
-    let visible = window_visible(&app)?;
-    Ok(store.snapshot(visible, app.package_info().version.to_string()))
+    tray::sync_tray(&app)?;
+    snapshot(&app, &store, &runtime)
 }
 
 /// Shows the main window from a frontend command and reports current visibility.
 #[tauri::command]
-pub fn show_main_window(app: AppHandle, store: State<'_, SettingsStore>) -> AppResult<AppSnapshot> {
+pub fn show_main_window(
+    app: AppHandle,
+    store: State<'_, SettingsStore>,
+    runtime: State<'_, RuntimeStore>,
+) -> AppResult<AppSnapshot> {
     set_window_visible(&app, true)?;
-    let visible = window_visible(&app)?;
-    Ok(store.snapshot(visible, app.package_info().version.to_string()))
+    snapshot(&app, &store, &runtime)
 }
 
 /// Hides the main window while keeping the tray process alive.
 #[tauri::command]
-pub fn hide_main_window(app: AppHandle, store: State<'_, SettingsStore>) -> AppResult<AppSnapshot> {
+pub fn hide_main_window(
+    app: AppHandle,
+    store: State<'_, SettingsStore>,
+    runtime: State<'_, RuntimeStore>,
+) -> AppResult<AppSnapshot> {
     set_window_visible(&app, false)?;
-    let visible = window_visible(&app)?;
-    Ok(store.snapshot(visible, app.package_info().version.to_string()))
+    snapshot(&app, &store, &runtime)
 }
 
 /// Flips the main window visibility using the same path as tray toggles.
@@ -50,11 +70,23 @@ pub fn hide_main_window(app: AppHandle, store: State<'_, SettingsStore>) -> AppR
 pub fn toggle_main_window(
     app: AppHandle,
     store: State<'_, SettingsStore>,
+    runtime: State<'_, RuntimeStore>,
 ) -> AppResult<AppSnapshot> {
     let visible = !window_visible(&app)?;
     set_window_visible(&app, visible)?;
-    let visible = window_visible(&app)?;
-    Ok(store.snapshot(visible, app.package_info().version.to_string()))
+    snapshot(&app, &store, &runtime)
+}
+
+/// Updates the tray phase for future capture/recognition/generation workflows.
+#[tauri::command]
+pub fn set_tray_status(
+    app: AppHandle,
+    store: State<'_, SettingsStore>,
+    runtime: State<'_, RuntimeStore>,
+    status: crate::settings::TrayStatus,
+) -> AppResult<AppSnapshot> {
+    tray::set_tray_status(&app, status)?;
+    snapshot(&app, &store, &runtime)
 }
 
 /// Applies an explicit visibility state and normalizes Tauri window errors.
@@ -96,4 +128,17 @@ pub(crate) fn window_visible(app: &AppHandle) -> AppResult<bool> {
         tracing::error!(%error, "Could not inspect the main window visibility");
         AppError::MainWindowUnavailable
     })
+}
+
+fn snapshot(
+    app: &AppHandle,
+    store: &SettingsStore,
+    runtime: &RuntimeStore,
+) -> AppResult<AppSnapshot> {
+    let visible = window_visible(app)?;
+    Ok(store.snapshot(
+        visible,
+        app.package_info().version.to_string(),
+        runtime.snapshot(),
+    ))
 }

@@ -11,7 +11,8 @@
     "allow-reset-settings",
     "allow-show-main-window",
     "allow-hide-main-window",
-    "allow-toggle-main-window"
+    "allow-toggle-main-window",
+    "allow-set-tray-status"
   ],
   "platforms": ["windows"]
 }

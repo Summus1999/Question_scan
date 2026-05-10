@@ -1,18 +1,22 @@
 mod commands;
 mod errors;
+mod runtime;
 mod settings;
+mod shortcuts;
 mod tray;
 
 use crate::errors::AppError;
+use crate::runtime::RuntimeStore;
 use crate::settings::SettingsStore;
-use tauri::{Manager, WindowEvent};
+use tauri::{Manager, RunEvent, WindowEvent};
 use tracing_subscriber::EnvFilter;
 
 // Boots the Tauri runtime, wires app state, tray integration, and frontend commands.
 fn main() {
     init_logging();
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        .plugin(shortcuts::global_shortcut_plugin())
         .setup(|app| {
             let settings_path = app
                 .path()
@@ -20,10 +24,20 @@ fn main() {
                 .map_err(|_| AppError::ConfigDirUnavailable)?
                 .join("settings.json");
             let store = SettingsStore::load(settings_path);
-            let launch_to_tray = store.current().launch_to_tray;
+            let settings = store.current();
+            let launch_to_tray = settings.launch_to_tray;
 
+            app.manage(RuntimeStore::default());
             app.manage(store);
             tray::build_tray(app.handle())?;
+
+            let runtime = app.state::<RuntimeStore>();
+            if let Err(error) = shortcuts::sync_global_shortcut(app.handle(), &settings, &runtime) {
+                runtime.set_global_shortcut_error(Some(error.to_string()));
+                runtime.set_tray_status(crate::settings::TrayStatus::Failed);
+                tray::sync_tray(app.handle())?;
+                tracing::warn!(%error, "Global shortcut registration failed during startup");
+            }
 
             let window = app
                 .get_webview_window("main")
@@ -51,9 +65,16 @@ fn main() {
             commands::show_main_window,
             commands::hide_main_window,
             commands::toggle_main_window,
+            commands::set_tray_status,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Question Scan");
+        .build(tauri::generate_context!())
+        .expect("error while building Question Scan");
+
+    app.run(|app, event| {
+        if matches!(event, RunEvent::ExitRequested { .. } | RunEvent::Exit) {
+            shortcuts::unregister_global_shortcuts(app);
+        }
+    });
 }
 
 // Initializes logging once; duplicate init attempts in dev/test should stay harmless.

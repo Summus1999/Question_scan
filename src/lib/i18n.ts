@@ -26,6 +26,7 @@ type AppMessages = {
     charactersPerSecond: string;
     defaultLanguage: string;
     globalShortcut: string;
+    globalShortcutEnabled: string;
     interfaceLanguage: string;
     model: string;
     outputSpeed: string;
@@ -56,6 +57,8 @@ type AppMessages = {
     saveFailed: string;
     saveSucceeded: string;
     windowActionFailed: string;
+    shortcutListenerFailed: string;
+    shortcutTriggered: string;
   };
   outputSpeed: Record<OutputSpeed, string>;
   result: {
@@ -65,6 +68,7 @@ type AppMessages = {
   runtime: {
     aiResultState: string;
     settingsPath: string;
+    shortcutTriggers: string;
     screenshotState: string;
     startupStatus: string;
     subtitle: string;
@@ -78,6 +82,8 @@ type AppMessages = {
     launchToTrayLabel: string;
     saveHistoryDescription: string;
     saveHistoryLabel: string;
+    shortcutEnabledDescription: string;
+    shortcutEnabledLabel: string;
     subtitle: string;
     title: string;
   };
@@ -114,6 +120,7 @@ const zhCn: AppMessages = {
     charactersPerSecond: '每秒字符数',
     defaultLanguage: '默认编程语言',
     globalShortcut: '全局快捷键',
+    globalShortcutEnabled: '全局快捷键开关',
     interfaceLanguage: '界面语言',
     model: '模型',
     outputSpeed: '输出速度',
@@ -149,6 +156,8 @@ const zhCn: AppMessages = {
     saveFailed: '保存设置失败。',
     saveSucceeded: '设置已保存到本地配置。',
     windowActionFailed: '窗口操作失败。',
+    shortcutListenerFailed: '快捷键事件监听失败，请重新加载应用。',
+    shortcutTriggered: '全局快捷键已触发，截图流程将在后续阶段接入。',
   },
   outputSpeed: {
     fast: '快速',
@@ -163,6 +172,7 @@ const zhCn: AppMessages = {
   runtime: {
     aiResultState: 'AI 结果状态',
     settingsPath: '设置路径',
+    shortcutTriggers: '快捷键触发次数',
     screenshotState: '截图状态',
     startupStatus: '启动状态',
     subtitle: '当前本地状态的实时摘要，后续截图和 AI 流程会继续扩展这里。',
@@ -183,6 +193,8 @@ const zhCn: AppMessages = {
     launchToTrayLabel: '启动到托盘',
     saveHistoryDescription: '保存本地答案快照，便于稍后回看。',
     saveHistoryLabel: '保存历史',
+    shortcutEnabledDescription: '允许应用在后台响应配置的全局快捷键。',
+    shortcutEnabledLabel: '启用全局快捷键',
     subtitle: '本地默认值、服务占位配置，以及后续阶段会扩展的外壳级选项。',
     title: '设置',
   },
@@ -230,6 +242,7 @@ const enUs: AppMessages = {
     charactersPerSecond: 'Characters per second',
     defaultLanguage: 'Default language',
     globalShortcut: 'Global shortcut',
+    globalShortcutEnabled: 'Global shortcut toggle',
     interfaceLanguage: 'Interface language',
     model: 'Model',
     outputSpeed: 'Output speed',
@@ -265,6 +278,10 @@ const enUs: AppMessages = {
     saveFailed: 'Failed to save settings.',
     saveSucceeded: 'Settings saved to the local config store.',
     windowActionFailed: 'Window action failed.',
+    shortcutListenerFailed:
+      'Shortcut event listening failed. Reload the app and try again.',
+    shortcutTriggered:
+      'Global shortcut triggered. The capture flow will be wired in a later stage.',
   },
   outputSpeed: {
     fast: 'Fast',
@@ -279,6 +296,7 @@ const enUs: AppMessages = {
   runtime: {
     aiResultState: 'AI result state',
     settingsPath: 'Settings path',
+    shortcutTriggers: 'Shortcut triggers',
     screenshotState: 'Screenshot state',
     startupStatus: 'Startup status',
     subtitle:
@@ -301,6 +319,9 @@ const enUs: AppMessages = {
     launchToTrayLabel: 'Launch to tray',
     saveHistoryDescription: 'Store the local answer snapshot for later review.',
     saveHistoryLabel: 'Save history',
+    shortcutEnabledDescription:
+      'Allow the app to respond to the configured shortcut in the background.',
+    shortcutEnabledLabel: 'Enable global shortcut',
     subtitle:
       'Local defaults, provider placeholders, and the shell-level options that later stages will expand.',
     title: 'Settings',

@@ -65,6 +65,7 @@ export interface AppSettings {
   outputSpeed: OutputSpeed;
   customCharactersPerSecond: number;
   globalShortcut: string;
+  globalShortcutEnabled: boolean;
   saveHistory: boolean;
   launchToTray: boolean;
   theme: ThemePreference;
@@ -77,6 +78,9 @@ export interface AppState extends RuntimeState {
   startupWarning: string | null;
   windowVisible: boolean;
   version: string;
+  globalShortcutRegistered: boolean;
+  globalShortcutError: string | null;
+  globalShortcutTriggerCount: number;
 }
 
 export const LANGUAGE_OPTIONS = [
@@ -104,6 +108,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   outputSpeed: 'normal',
   customCharactersPerSecond: 24,
   globalShortcut: 'Ctrl+Shift+Q',
+  globalShortcutEnabled: true,
   saveHistory: false,
   launchToTray: false,
   theme: 'system',
@@ -120,4 +125,7 @@ export const DEFAULT_APP_STATE: AppState = {
   startupWarning: null,
   windowVisible: true,
   version: '0.1.0',
+  globalShortcutRegistered: false,
+  globalShortcutError: null,
+  globalShortcutTriggerCount: 0,
 };
