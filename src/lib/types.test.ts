@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import type {
+  QuestionRecognitionResult,
+  RecognitionConfidenceRoute,
+} from './types';
 import {
   AI_RESULT_STATES,
   APP_STATUSES,
   DEFAULT_APP_STATE,
+  DEFAULT_RECOGNITION_CONFIDENCE_THRESHOLDS,
   DEFAULT_SETTINGS,
   LANGUAGE_IDS,
   LANGUAGE_OPTIONS,
   OUTPUT_SPEED_OPTIONS,
   OUTPUT_SPEEDS,
+  RECOGNITION_CONFIDENCE_ROUTES,
   SCREENSHOT_STATES,
   THEME_PREFERENCES,
   TRAY_STATUSES,
@@ -79,5 +85,58 @@ describe('shared frontend types', () => {
       globalShortcutError: null,
       globalShortcutTriggerCount: 0,
     });
+  });
+
+  it('keeps the recognition result contract aligned with the backend handoff shape', () => {
+    const recognition = {
+      boundingBox: {
+        x: 48,
+        y: 96,
+        width: 720,
+        height: 420,
+      },
+      confidence: 0.91,
+      title: 'Longest Substring Without Repeating Characters',
+      questionText:
+        'Given a string s, find the length of the longest substring without repeating characters.',
+      reason:
+        'The text block groups the title, statement, and examples into one algorithm problem panel.',
+    } satisfies QuestionRecognitionResult;
+
+    expect(recognition.boundingBox).toEqual({
+      x: 48,
+      y: 96,
+      width: 720,
+      height: 420,
+    });
+    expect(recognition.title).toBe(
+      'Longest Substring Without Repeating Characters',
+    );
+    expect(recognition.questionText).toContain(
+      'longest substring without repeating characters',
+    );
+    expect(recognition.reason).toContain('algorithm problem panel');
+    expect(Object.keys(recognition)).toEqual([
+      'boundingBox',
+      'confidence',
+      'title',
+      'questionText',
+      'reason',
+    ]);
+  });
+
+  it('keeps the recognition confidence routes and defaults aligned with the backend contract', () => {
+    const route = 'needsConfirmation' satisfies RecognitionConfidenceRoute;
+
+    expect(RECOGNITION_CONFIDENCE_ROUTES).toEqual([
+      'autoAccept',
+      'needsConfirmation',
+      'manualFallback',
+    ]);
+    expect(DEFAULT_RECOGNITION_CONFIDENCE_THRESHOLDS).toEqual({
+      autoAcceptMinConfidence: 0.85,
+      confirmationMinConfidence: 0.55,
+    });
+    expect(route).toBe('needsConfirmation');
   });
 });

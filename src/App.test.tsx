@@ -76,6 +76,107 @@ describe('App shell', () => {
     expect(screen.getByText('结果面板占位')).toBeInTheDocument();
   });
 
+  it('shows the crop overlay when the backend enters manual selection mode', async () => {
+    loadAppStateMock.mockResolvedValue({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      screenshotState: 'selecting',
+      settings: DEFAULT_SETTINGS,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('手动框选')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('拖拽开始框选')).toBeInTheDocument();
+  });
+
+  it('cancels manual crop selection and returns the capture state to idle', async () => {
+    loadAppStateMock.mockResolvedValue({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      screenshotState: 'selecting',
+      settings: DEFAULT_SETTINGS,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('手动框选')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }));
+
+    expect(screen.queryByText('手动框选')).not.toBeInTheDocument();
+    expect(screen.getByText('已取消手动框选。')).toBeInTheDocument();
+    expect(screen.getByText(/"screenshotState": "idle"/)).toBeInTheDocument();
+  });
+
+  it('retries automatic recognition from manual fallback', async () => {
+    loadAppStateMock.mockResolvedValue({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      screenshotState: 'selecting',
+      settings: DEFAULT_SETTINGS,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('手动框选')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '重新自动识别' }));
+
+    expect(screen.queryByText('手动框选')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('已清空手动选区，重新进入自动识别状态。'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/"screenshotState": "cropping"/),
+    ).toBeInTheDocument();
+  });
+
+  it('confirms the selected manual crop for the next crop step', async () => {
+    loadAppStateMock.mockResolvedValue({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      screenshotState: 'selecting',
+      settings: DEFAULT_SETTINGS,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('手动框选')).toBeInTheDocument();
+    });
+
+    const overlay = screen.getByLabelText('手动框选');
+    fireEvent.pointerDown(overlay, {
+      button: 0,
+      clientX: 80,
+      clientY: 96,
+      pointerId: 1,
+    });
+    fireEvent.pointerUp(overlay, {
+      clientX: 300,
+      clientY: 216,
+      pointerId: 1,
+    });
+    fireEvent.click(screen.getByRole('button', { name: '确认裁剪' }));
+
+    expect(screen.queryByText('手动框选')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '已确认裁剪区域，后续会使用这个选区生成高清裁剪图。 (220 x 120)',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/"screenshotState": "ready"/)).toBeInTheDocument();
+    expect(screen.getByText(/"manualCropSelection"/)).toBeInTheDocument();
+  });
+
   it('switches the visible shell language to English and persists the locale', async () => {
     loadAppStateMock.mockResolvedValue({
       ...DEFAULT_APP_STATE,

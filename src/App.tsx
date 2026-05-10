@@ -20,6 +20,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { CropOverlay } from './components/CropOverlay';
 import {
   hideMainWindow,
   listenGlobalShortcutTriggered,
@@ -35,6 +36,7 @@ import { getMessages } from './lib/i18n';
 import {
   type AppSettings,
   type AppState,
+  type CropSelectionRect,
   DEFAULT_APP_STATE,
   DEFAULT_SETTINGS,
   LANGUAGE_OPTIONS,
@@ -61,6 +63,11 @@ function App() {
   const settingsSectionRef = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<AppState>(DEFAULT_APP_STATE);
   const [draft, setDraft] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [cropSelection, setCropSelection] = useState<CropSelectionRect | null>(
+    null,
+  );
+  const [confirmedCropSelection, setConfirmedCropSelection] =
+    useState<CropSelectionRect | null>(null);
   const [isBusy, setIsBusy] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [notice, setNotice] = useState<{
@@ -69,6 +76,41 @@ function App() {
   } | null>(null);
 
   const messages = useMemo(() => getMessages(draft.uiLocale), [draft.uiLocale]);
+  const cropOverlayMessages = useMemo(
+    () =>
+      draft.uiLocale === 'enUs'
+        ? {
+            description:
+              'When auto recognition falls back, drag across the question area to keep a crop for the manual flow.',
+            idleHint: 'Drag to start a selection',
+            selectionLabel: 'Selected region',
+            cancelLabel: 'Cancel',
+            retryLabel: 'Retry auto recognition',
+            confirmLabel: 'Confirm crop',
+            confirmDisabledHint: 'Select a question region before confirming.',
+            cancelNotice: 'Manual selection canceled.',
+            retryNotice:
+              'Manual selection cleared. Auto recognition is ready to retry.',
+            confirmNotice:
+              'Crop confirmed. This region is ready for the high-resolution crop step.',
+            title: 'Manual question selection',
+          }
+        : {
+            description:
+              '当自动识别进入兜底时，在题目区域上拖拽就可以保留一个裁剪框。',
+            idleHint: '拖拽开始框选',
+            selectionLabel: '当前选区',
+            cancelLabel: '取消',
+            retryLabel: '重新自动识别',
+            confirmLabel: '确认裁剪',
+            confirmDisabledHint: '请先框选题目区域再确认。',
+            cancelNotice: '已取消手动框选。',
+            retryNotice: '已清空手动选区，重新进入自动识别状态。',
+            confirmNotice: '已确认裁剪区域，后续会使用这个选区生成高清裁剪图。',
+            title: '手动框选',
+          },
+    [draft.uiLocale],
+  );
 
   // Converts serialized Tauri command errors into user-facing copy when Rust supplies it.
   const errorMessage = useCallback((error: unknown, fallback: string) => {
@@ -134,6 +176,63 @@ function App() {
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    if (state.screenshotState === 'selecting') {
+      setConfirmedCropSelection(null);
+      return;
+    }
+
+    setCropSelection(null);
+  }, [state.screenshotState]);
+
+  const handleCancelManualCrop = useCallback(() => {
+    setCropSelection(null);
+    setConfirmedCropSelection(null);
+    setState((current) => ({
+      ...current,
+      trayStatus: 'idle',
+      screenshotState: 'idle',
+      aiResultState: 'idle',
+    }));
+    setNotice({
+      tone: 'neutral',
+      text: cropOverlayMessages.cancelNotice,
+    });
+  }, [cropOverlayMessages.cancelNotice]);
+
+  const handleRetryAutoRecognition = useCallback(() => {
+    setCropSelection(null);
+    setConfirmedCropSelection(null);
+    setState((current) => ({
+      ...current,
+      trayStatus: 'recognizing',
+      screenshotState: 'cropping',
+      aiResultState: 'idle',
+    }));
+    setNotice({
+      tone: 'neutral',
+      text: cropOverlayMessages.retryNotice,
+    });
+  }, [cropOverlayMessages.retryNotice]);
+
+  const handleConfirmManualCrop = useCallback(
+    (selection: CropSelectionRect) => {
+      setCropSelection(null);
+      setConfirmedCropSelection(selection);
+      setState((current) => ({
+        ...current,
+        trayStatus: 'recognizing',
+        screenshotState: 'ready',
+        aiResultState: 'idle',
+      }));
+      setNotice({
+        tone: 'neutral',
+        text: `${cropOverlayMessages.confirmNotice} (${selection.width} x ${selection.height})`,
+      });
+    },
+    [cropOverlayMessages.confirmNotice],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -700,6 +799,7 @@ function App() {
                     globalShortcutError: state.globalShortcutError,
                     globalShortcutTriggerCount:
                       state.globalShortcutTriggerCount,
+                    manualCropSelection: confirmedCropSelection,
                   },
                   null,
                   2,
@@ -713,6 +813,24 @@ function App() {
           {messages.footer}
         </footer>
       </main>
+
+      <CropOverlay
+        active={state.screenshotState === 'selecting'}
+        title={cropOverlayMessages.title}
+        description={cropOverlayMessages.description}
+        idleHint={cropOverlayMessages.idleHint}
+        selectionLabel={cropOverlayMessages.selectionLabel}
+        cancelLabel={cropOverlayMessages.cancelLabel}
+        retryLabel={cropOverlayMessages.retryLabel}
+        confirmLabel={cropOverlayMessages.confirmLabel}
+        confirmDisabledHint={cropOverlayMessages.confirmDisabledHint}
+        selection={cropSelection}
+        onSelectionChange={setCropSelection}
+        onSelectionComplete={setCropSelection}
+        onCancel={handleCancelManualCrop}
+        onRetryRecognition={handleRetryAutoRecognition}
+        onConfirmSelection={handleConfirmManualCrop}
+      />
     </div>
   );
 }

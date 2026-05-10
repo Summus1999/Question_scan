@@ -1,5 +1,6 @@
 mod commands;
 mod errors;
+mod recognition;
 mod runtime;
 mod screenshot;
 mod settings;

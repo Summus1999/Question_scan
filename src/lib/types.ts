@@ -36,6 +36,11 @@ export const AI_RESULT_STATES = [
   'complete',
   'failed',
 ] as const;
+export const RECOGNITION_CONFIDENCE_ROUTES = [
+  'autoAccept',
+  'needsConfirmation',
+  'manualFallback',
+] as const;
 
 export type LanguageId = (typeof LANGUAGE_IDS)[number];
 export type OutputSpeed = (typeof OUTPUT_SPEEDS)[number];
@@ -45,6 +50,35 @@ export type AppStatus = (typeof APP_STATUSES)[number];
 export type TrayStatus = (typeof TRAY_STATUSES)[number];
 export type ScreenshotState = (typeof SCREENSHOT_STATES)[number];
 export type AiResultState = (typeof AI_RESULT_STATES)[number];
+export type RecognitionConfidenceRoute =
+  (typeof RECOGNITION_CONFIDENCE_ROUTES)[number];
+
+export interface QuestionBoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface QuestionRecognitionResult {
+  boundingBox: QuestionBoundingBox;
+  confidence: number;
+  title: string | null;
+  questionText: string | null;
+  reason: string;
+}
+
+export interface CropSelectionRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface RecognitionConfidenceThresholds {
+  autoAcceptMinConfidence: number;
+  confirmationMinConfidence: number;
+}
 
 export type SelectOption<TValue extends string> = Readonly<{
   value: TValue;
@@ -118,6 +152,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   uiLocale: 'zhCn',
 };
+
+export const DEFAULT_RECOGNITION_CONFIDENCE_THRESHOLDS: RecognitionConfidenceThresholds =
+  {
+    autoAcceptMinConfidence: 0.85,
+    confirmationMinConfidence: 0.55,
+  };
 
 export const DEFAULT_APP_STATE: AppState = {
   status: 'loading',
