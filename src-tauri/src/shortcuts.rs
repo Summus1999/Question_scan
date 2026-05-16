@@ -1,4 +1,5 @@
 use crate::errors::{AppError, AppResult};
+use crate::pipeline;
 use crate::runtime::RuntimeStore;
 use crate::settings::{AppSettings, TrayStatus};
 use crate::tray;
@@ -139,6 +140,20 @@ fn is_already_registered_reason(reason: &str) -> bool {
 
 fn handle_shortcut_pressed(app: &AppHandle, shortcut: String) {
     if let Some(runtime) = app.try_state::<RuntimeStore>() {
+        // Prevent concurrent pipeline runs while already processing.
+        let snapshot = runtime.snapshot();
+        if snapshot.tray_status != TrayStatus::Idle
+            && snapshot.tray_status != TrayStatus::Failed
+            && snapshot.tray_status != TrayStatus::Complete
+        {
+            tracing::info!(
+                shortcut = %shortcut,
+                tray_status = ?snapshot.tray_status,
+                "Ignoring shortcut press while already processing"
+            );
+            return;
+        }
+
         let snapshot = runtime.record_global_shortcut_trigger();
         tracing::info!(
             shortcut = %shortcut,
@@ -159,6 +174,12 @@ fn handle_shortcut_pressed(app: &AppHandle, shortcut: String) {
                 trigger_count: snapshot.global_shortcut_trigger_count,
             },
         );
+
+        // Start the screenshot-to-AI pipeline in the background.
+        let app_clone = app.clone();
+        tauri::async_runtime::spawn(async move {
+            pipeline::run_screenshot_to_ai_pipeline(app_clone).await;
+        });
     }
 }
 

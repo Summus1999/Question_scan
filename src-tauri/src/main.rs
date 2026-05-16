@@ -3,6 +3,7 @@ mod errors;
 mod history;
 mod language;
 mod output_parser;
+mod pipeline;
 mod prompts;
 mod provider;
 mod provider_key_store;

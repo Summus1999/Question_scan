@@ -273,7 +273,7 @@ fn extract_recognition_from_instruction(instruction: &str) -> (Option<String>, O
 
 /// Maps the settings module's LanguageId to the language module's LanguageId.
 /// Both enums have identical variants, so this is a straightforward conversion.
-fn map_settings_language_to_language_module(
+pub(crate) fn map_settings_language_to_language_module(
     id: crate::settings::LanguageId,
 ) -> crate::language::LanguageId {
     match id {
