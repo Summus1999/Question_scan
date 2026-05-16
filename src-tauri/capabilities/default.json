@@ -13,7 +13,11 @@
     "allow-hide-main-window",
     "allow-toggle-main-window",
     "allow-set-tray-status",
-    "allow-send-ai-request"
+    "allow-send-ai-request",
+    "allow-clear-cache",
+    "allow-list-history",
+    "allow-delete-history-entry",
+    "allow-clear-history"
   ],
   "platforms": ["windows"]
 }

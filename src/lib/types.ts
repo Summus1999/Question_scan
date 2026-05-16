@@ -12,6 +12,7 @@ export const LANGUAGE_IDS = [
 export const OUTPUT_SPEEDS = ['fast', 'normal', 'slow', 'custom'] as const;
 export const THEME_PREFERENCES = ['system', 'light', 'dark'] as const;
 export const UI_LOCALES = ['zhCn', 'enUs'] as const;
+export const PLATFORM_FORMATS = ['acm', 'leetcode', 'generic'] as const;
 export const APP_STATUSES = ['loading', 'ready', 'warning', 'error'] as const;
 export const TRAY_STATUSES = [
   'idle',
@@ -46,6 +47,7 @@ export type LanguageId = (typeof LANGUAGE_IDS)[number];
 export type OutputSpeed = (typeof OUTPUT_SPEEDS)[number];
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 export type UiLocale = (typeof UI_LOCALES)[number];
+export type PlatformFormat = (typeof PLATFORM_FORMATS)[number];
 export type AppStatus = (typeof APP_STATUSES)[number];
 export type TrayStatus = (typeof TRAY_STATUSES)[number];
 export type ScreenshotState = (typeof SCREENSHOT_STATES)[number];
@@ -92,6 +94,18 @@ export interface RuntimeState {
   aiResultState: AiResultState;
 }
 
+export interface HistoryEntry {
+  id: string;
+  timestamp: string;
+  recognizedTitle: string | null;
+  recognizedText: string | null;
+  language: LanguageId;
+  platform: PlatformFormat;
+  model: string;
+  result: string;
+  userNote: string | null;
+}
+
 export interface AppSettings {
   providerName: string;
   providerBaseUrl: string;
@@ -100,6 +114,7 @@ export interface AppSettings {
   requestTimeoutSeconds: number;
   streamingEnabled: boolean;
   defaultLanguage: LanguageId;
+  platformFormat: PlatformFormat;
   outputSpeed: OutputSpeed;
   customCharactersPerSecond: number;
   globalShortcut: string;
@@ -173,6 +188,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   requestTimeoutSeconds: 60,
   streamingEnabled: true,
   defaultLanguage: 'cpp20',
+  platformFormat: 'acm',
   outputSpeed: 'normal',
   customCharactersPerSecond: 24,
   globalShortcut: 'Ctrl+Shift+Q',

@@ -1,4 +1,5 @@
 use crate::errors::{AppError, AppResult};
+use crate::language::PlatformFormat;
 use crate::provider_key_store;
 use crate::runtime::RuntimeSnapshot;
 use crate::screenshot::ScreenshotCompressionConfig;
@@ -108,6 +109,8 @@ pub struct AppSettings {
     pub screenshot_max_long_edge: u32,
     #[serde(default = "default_screenshot_jpeg_quality")]
     pub screenshot_jpeg_quality: u8,
+    #[serde(default = "default_platform_format")]
+    pub platform_format: PlatformFormat,
     pub save_history: bool,
     pub launch_to_tray: bool,
     pub theme: ThemePreference,
@@ -132,6 +135,7 @@ impl Default for AppSettings {
             global_shortcut_enabled: true,
             screenshot_max_long_edge: default_screenshot_max_long_edge(),
             screenshot_jpeg_quality: default_screenshot_jpeg_quality(),
+            platform_format: default_platform_format(),
             save_history: false,
             launch_to_tray: false,
             theme: ThemePreference::System,
@@ -175,6 +179,11 @@ fn default_screenshot_jpeg_quality() -> u8 {
     85
 }
 
+/// Defaults to ACM-style I/O for the broadest compatibility with competitive programming platforms.
+fn default_platform_format() -> PlatformFormat {
+    PlatformFormat::Acm
+}
+
 impl AppSettings {
     /// Trims user-editable string fields and repairs invalid custom speed, timeout, and screenshot values.
     pub fn sanitized(mut self) -> Self {
@@ -197,6 +206,7 @@ impl AppSettings {
         } else {
             self.screenshot_jpeg_quality = self.screenshot_jpeg_quality.clamp(1, 100);
         }
+        // Platform format has no invalid state to sanitize.
         self
     }
 
@@ -515,6 +525,7 @@ mod tests {
             global_shortcut_enabled: false,
             screenshot_max_long_edge: 1600,
             screenshot_jpeg_quality: 78,
+            platform_format: PlatformFormat::LeetCode,
             save_history: true,
             launch_to_tray: true,
             theme: ThemePreference::Dark,

@@ -10,6 +10,10 @@ fn main() {
             "toggle_main_window",
             "set_tray_status",
             "send_ai_request",
+            "clear_cache",
+            "list_history",
+            "delete_history_entry",
+            "clear_history",
         ]),
     ))
     .expect("failed to run tauri build script");

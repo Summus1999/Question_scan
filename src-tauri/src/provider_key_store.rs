@@ -1,4 +1,4 @@
-use crate::errors::AppResult;
+use crate::errors::{AppError, AppResult};
 
 #[cfg(all(not(test), target_os = "windows"))]
 const API_KEY_ACCOUNT_NAME: &str = "provider-api-key";

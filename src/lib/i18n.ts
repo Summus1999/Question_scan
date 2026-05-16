@@ -10,6 +10,12 @@ import type {
 
 type AppMessages = {
   actions: {
+    clearCache: string;
+    clearCacheNotice: string;
+    clearHistory: string;
+    clearHistoryNotice: string;
+    deleteHistoryEntry: string;
+    deleteHistoryEntryNotice: string;
     hideWindow: string;
     reload: string;
     reset: string;
@@ -31,6 +37,7 @@ type AppMessages = {
     interfaceLanguage: string;
     model: string;
     outputSpeed: string;
+    platformFormat: string;
     presentation: string;
     providerName: string;
     providerBaseUrl: string;
@@ -54,6 +61,7 @@ type AppMessages = {
     window: string;
   };
   localeOptions: Record<UiLocale, string>;
+  platformFormat: Record<'acm' | 'leetcode' | 'generic', string>;
   notices: {
     backendNotResponding: string;
     resetFailed: string;
@@ -100,6 +108,13 @@ type AppMessages = {
     windowVisible: string;
   };
   screenshotState: Record<ScreenshotState, string>;
+  privacy: {
+    dataFlowDescription: string;
+    dataFlowTitle: string;
+    screenshotWarning: string;
+    subtitle: string;
+    title: string;
+  };
   settings: {
     launchToTrayDescription: string;
     launchToTrayLabel: string;
@@ -118,6 +133,12 @@ type AppMessages = {
 
 const zhCn: AppMessages = {
   actions: {
+    clearCache: '清空缓存',
+    clearCacheNotice: '临时缓存已清空。',
+    clearHistory: '清空全部历史',
+    clearHistoryNotice: '全部历史记录已清空。',
+    deleteHistoryEntry: '删除',
+    deleteHistoryEntryNotice: '历史记录已删除。',
     hideWindow: '隐藏窗口',
     reload: '重新加载',
     reset: '重置',
@@ -150,6 +171,7 @@ const zhCn: AppMessages = {
     interfaceLanguage: '界面语言',
     model: '模型',
     outputSpeed: '输出速度',
+    platformFormat: '平台格式',
     presentation: '展示方式',
     providerName: '服务商名称',
     providerBaseUrl: '服务 Base URL',
@@ -177,6 +199,11 @@ const zhCn: AppMessages = {
   localeOptions: {
     zhCn: '中文',
     enUs: 'English',
+  },
+  platformFormat: {
+    acm: 'ACM (标准输入输出)',
+    leetcode: 'LeetCode (函数签名)',
+    generic: '通用 (函数模式)',
   },
   notices: {
     backendNotResponding: '桌面后端没有响应。',
@@ -236,6 +263,15 @@ const zhCn: AppMessages = {
     ready: '就绪',
     failed: '失败',
   },
+  privacy: {
+    dataFlowDescription:
+      '1. 你按下快捷键后，软件截取当前屏幕。\n2. 软件在本地裁剪出题目区域，生成临时图片。\n3. 临时图片和你的配置一起发送给所配置的 AI 服务。\n4. AI 返回结果后，临时图片会被删除（除非你启用了保存历史）。\n5. 历史记录只保存在本地，包含题目文本、语言、模型和结果。',
+    dataFlowTitle: '数据流向',
+    screenshotWarning:
+      '截图会发送给所配置的 AI 服务。请确保你使用的是可信的服务商，并且只在授权环境中使用。',
+    subtitle: '了解你的数据如何被使用和存储。',
+    title: '隐私说明',
+  },
   settings: {
     launchToTrayDescription: '启动后隐藏窗口，并让应用保留在托盘。',
     launchToTrayLabel: '启动到托盘',
@@ -266,6 +302,12 @@ const zhCn: AppMessages = {
 
 const enUs: AppMessages = {
   actions: {
+    clearCache: 'Clear cache',
+    clearCacheNotice: 'Temporary cache cleared.',
+    clearHistory: 'Clear all history',
+    clearHistoryNotice: 'All history entries cleared.',
+    deleteHistoryEntry: 'Delete',
+    deleteHistoryEntryNotice: 'History entry deleted.',
     hideWindow: 'Hide window',
     reload: 'Reload',
     reset: 'Reset',
@@ -298,6 +340,7 @@ const enUs: AppMessages = {
     interfaceLanguage: 'Interface language',
     model: 'Model',
     outputSpeed: 'Output speed',
+    platformFormat: 'Platform format',
     presentation: 'Presentation',
     providerName: 'Provider name',
     providerBaseUrl: 'Provider base URL',
@@ -325,6 +368,11 @@ const enUs: AppMessages = {
   localeOptions: {
     zhCn: '中文',
     enUs: 'English',
+  },
+  platformFormat: {
+    acm: 'ACM (stdin/stdout)',
+    leetcode: 'LeetCode (function)',
+    generic: 'Generic (function)',
   },
   notices: {
     backendNotResponding: 'The desktop backend did not respond.',
@@ -386,6 +434,15 @@ const enUs: AppMessages = {
     selecting: 'Selecting',
     ready: 'Ready',
     failed: 'Failed',
+  },
+  privacy: {
+    dataFlowDescription:
+      '1. When you press the shortcut, the app captures your current screen.\n2. The app crops the question region locally and creates a temporary image.\n3. The temporary image and your configuration are sent to the configured AI service.\n4. After the AI responds, the temporary image is deleted (unless you enabled history).\n5. History is stored locally only, containing question text, language, model, and result.',
+    dataFlowTitle: 'Data flow',
+    screenshotWarning:
+      'Screenshots are sent to the configured AI service. Make sure you use a trusted provider and only use this in authorized environments.',
+    subtitle: 'Understand how your data is used and stored.',
+    title: 'Privacy',
   },
   settings: {
     launchToTrayDescription:

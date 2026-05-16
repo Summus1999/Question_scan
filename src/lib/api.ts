@@ -4,6 +4,7 @@ import type {
   AiStreamEventPayload,
   AppSettings,
   AppState,
+  HistoryEntry,
   TrayStatus,
 } from './types';
 
@@ -16,6 +17,10 @@ export const BACKEND_COMMANDS = {
   toggleMainWindow: 'toggle_main_window',
   setTrayStatus: 'set_tray_status',
   sendAiRequest: 'send_ai_request',
+  clearCache: 'clear_cache',
+  listHistory: 'list_history',
+  deleteHistoryEntry: 'delete_history_entry',
+  clearHistory: 'clear_history',
 } as const;
 
 export const FRONTEND_EVENTS = {
@@ -60,6 +65,22 @@ type BackendCommandSpec = {
       imageBytes: number[];
       imageMimeType: string;
     };
+    response: undefined;
+  };
+  [BACKEND_COMMANDS.clearCache]: {
+    payload: undefined;
+    response: undefined;
+  };
+  [BACKEND_COMMANDS.listHistory]: {
+    payload: undefined;
+    response: HistoryEntry[];
+  };
+  [BACKEND_COMMANDS.deleteHistoryEntry]: {
+    payload: { id: string };
+    response: boolean;
+  };
+  [BACKEND_COMMANDS.clearHistory]: {
+    payload: undefined;
     response: undefined;
   };
 };
@@ -176,4 +197,24 @@ export function sendAiRequest(
     imageBytes: Array.from(imageBytes),
     imageMimeType,
   });
+}
+
+// Deletes all temporary images from the system temp directory.
+export function clearCache(): Promise<void> {
+  return invokeBackend(BACKEND_COMMANDS.clearCache);
+}
+
+// Returns the list of saved history entries.
+export function listHistory(): Promise<HistoryEntry[]> {
+  return invokeBackend(BACKEND_COMMANDS.listHistory);
+}
+
+// Deletes a single history entry by its id.
+export function deleteHistoryEntry(id: string): Promise<boolean> {
+  return invokeBackend(BACKEND_COMMANDS.deleteHistoryEntry, { id });
+}
+
+// Clears all history entries.
+export function clearHistory(): Promise<void> {
+  return invokeBackend(BACKEND_COMMANDS.clearHistory);
 }

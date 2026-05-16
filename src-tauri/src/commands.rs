@@ -1,4 +1,5 @@
 use crate::errors::{AppError, AppResult};
+use crate::history::{HistoryEntry, HistoryStore};
 use crate::provider::{build_openai_multimodal_request, OpenAiImageInput};
 use crate::runtime::RuntimeStore;
 use crate::settings::{AppSettings, AppSnapshot, SettingsStore};
@@ -167,6 +168,43 @@ pub async fn send_ai_request(
     Ok(())
 }
 
+/// Deletes all orphaned temporary images from the system temp directory.
+#[tauri::command]
+pub fn clear_cache() -> AppResult<()> {
+    let temp_dir = std::env::temp_dir().join("question-scan");
+    if temp_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&temp_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Err(error) = std::fs::remove_file(&path) {
+                        tracing::warn!(path = %path.display(), %error, "Could not remove temp file during clear_cache");
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Returns the list of saved history entries.
+#[tauri::command]
+pub fn list_history(store: State<'_, HistoryStore>) -> AppResult<Vec<HistoryEntry>> {
+    Ok(store.list())
+}
+
+/// Deletes a single history entry by its id.
+#[tauri::command]
+pub fn delete_history_entry(store: State<'_, HistoryStore>, id: String) -> AppResult<bool> {
+    store.delete(&id)
+}
+
+/// Clears all history entries.
+#[tauri::command]
+pub fn clear_history(store: State<'_, HistoryStore>) -> AppResult<()> {
+    store.clear()
+}
+
 fn snapshot(
     app: &AppHandle,
     store: &SettingsStore,
@@ -178,4 +216,41 @@ fn snapshot(
         app.package_info().version.to_string(),
         runtime.snapshot(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn clear_cache_deletes_temp_files() {
+        let _guard = TEST_LOCK.lock().expect("test lock poisoned");
+        let temp_dir = std::env::temp_dir().join("question-scan");
+        std::fs::create_dir_all(&temp_dir).expect("create temp dir");
+
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock drift")
+            .as_nanos();
+        let test_file = temp_dir.join(format!("cache-test-{nonce}.png"));
+        std::fs::write(&test_file, b"fake image").expect("write test file");
+        assert!(test_file.exists());
+
+        clear_cache().expect("clear_cache should succeed");
+
+        assert!(!test_file.exists());
+    }
+
+    #[test]
+    fn clear_cache_succeeds_when_directory_missing() {
+        let _guard = TEST_LOCK.lock().expect("test lock poisoned");
+        let temp_dir = std::env::temp_dir().join("question-scan");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+
+        assert!(clear_cache().is_ok());
+    }
 }

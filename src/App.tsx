@@ -8,7 +8,9 @@ import {
   RotateCcw,
   Save,
   Settings2,
+  Shield,
   SquareStack,
+  Trash2,
   TriangleAlert,
 } from 'lucide-react';
 import {
@@ -23,11 +25,15 @@ import { CropOverlay } from './components/CropOverlay';
 import { ResultPanel } from './components/ResultPanel';
 import { useTypewriter } from './hooks/useTypewriter';
 import {
+  clearCache,
+  clearHistory,
+  deleteHistoryEntry,
   hideMainWindow,
   listenAiStreamEvent,
   listenGlobalShortcutTriggered,
   listenOpenSettings,
   listenRuntimeStateChanged,
+  listHistory,
   loadAppState,
   resetSettings,
   saveSettings,
@@ -41,9 +47,11 @@ import {
   type CropSelectionRect,
   DEFAULT_APP_STATE,
   DEFAULT_SETTINGS,
+  type HistoryEntry,
   LANGUAGE_OPTIONS,
   type LanguageId,
   OUTPUT_SPEED_OPTIONS,
+  PLATFORM_FORMATS,
   UI_LOCALES,
 } from './lib/types';
 
@@ -82,6 +90,8 @@ function App() {
   const [currentLanguage, setCurrentLanguage] = useState<LanguageId>(
     DEFAULT_SETTINGS.defaultLanguage,
   );
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   const typewriter = useTypewriter({
     speed: draft.outputSpeed,
@@ -441,6 +451,69 @@ function App() {
     [typewriter, messages.resultPanel.switchLanguageNotice],
   );
 
+  const loadHistory = useCallback(async () => {
+    if (!draft.saveHistory) {
+      setHistoryEntries([]);
+      return;
+    }
+    setIsHistoryLoading(true);
+    try {
+      const entries = await listHistory();
+      setHistoryEntries(entries);
+    } catch (error) {
+      const message = errorMessage(error, 'Failed to load history');
+      setNotice({ tone: 'error', text: message });
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }, [draft.saveHistory, errorMessage]);
+
+  const handleClearCache = useCallback(async () => {
+    try {
+      await clearCache();
+      setNotice({
+        tone: 'neutral',
+        text: messages.actions.clearCacheNotice,
+      });
+    } catch (error) {
+      const message = errorMessage(error, 'Failed to clear cache');
+      setNotice({ tone: 'error', text: message });
+    }
+  }, [errorMessage, messages.actions.clearCacheNotice]);
+
+  const handleDeleteHistoryEntry = useCallback(
+    async (id: string) => {
+      try {
+        await deleteHistoryEntry(id);
+        setHistoryEntries((current) =>
+          current.filter((entry) => entry.id !== id),
+        );
+        setNotice({
+          tone: 'neutral',
+          text: messages.actions.deleteHistoryEntryNotice,
+        });
+      } catch (error) {
+        const message = errorMessage(error, 'Failed to delete history entry');
+        setNotice({ tone: 'error', text: message });
+      }
+    },
+    [errorMessage, messages.actions.deleteHistoryEntryNotice],
+  );
+
+  const handleClearHistory = useCallback(async () => {
+    try {
+      await clearHistory();
+      setHistoryEntries([]);
+      setNotice({
+        tone: 'neutral',
+        text: messages.actions.clearHistoryNotice,
+      });
+    } catch (error) {
+      const message = errorMessage(error, 'Failed to clear history');
+      setNotice({ tone: 'error', text: message });
+    }
+  }, [errorMessage, messages.actions.clearHistoryNotice]);
+
   const isDirty = useMemo(
     () => JSON.stringify(draft) !== JSON.stringify(state.settings),
     [draft, state.settings],
@@ -768,6 +841,29 @@ function App() {
                 </Field>
 
                 <Field
+                  label={messages.fields.platformFormat}
+                  labelFor="platform-format"
+                >
+                  <select
+                    id="platform-format"
+                    className="field-input"
+                    value={draft.platformFormat}
+                    onChange={(event) =>
+                      updateField(
+                        'platformFormat',
+                        event.target.value as AppSettings['platformFormat'],
+                      )
+                    }
+                  >
+                    {PLATFORM_FORMATS.map((format) => (
+                      <option key={format} value={format}>
+                        {messages.platformFormat[format]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field
                   label={messages.fields.globalShortcut}
                   labelFor="global-shortcut"
                 >
@@ -921,6 +1017,109 @@ function App() {
                     ? messages.actions.savingEllipsis
                     : messages.actions.saveSettings}
                 </button>
+              </div>
+
+              <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                <SectionTitle
+                  icon={<Shield className="h-4 w-4" />}
+                  title={messages.privacy.title}
+                  subtitle={messages.privacy.subtitle}
+                />
+                <div className="mt-3 space-y-3">
+                  <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {messages.privacy.screenshotWarning}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-slate-900">
+                      {messages.privacy.dataFlowTitle}
+                    </h4>
+                    <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-600">
+                      {messages.privacy.dataFlowDescription}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                <h3 className="text-sm font-semibold text-slate-900">
+                  {draft.uiLocale === 'zhCn' ? '数据管理' : 'Data management'}
+                </h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    onClick={() => void handleClearCache()}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {messages.actions.clearCache}
+                  </button>
+                  {draft.saveHistory && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      onClick={() => void handleClearHistory()}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {messages.actions.clearHistory}
+                    </button>
+                  )}
+                </div>
+                {draft.saveHistory && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      className="text-sm text-slate-500 underline hover:text-slate-700"
+                      onClick={() => void loadHistory()}
+                      disabled={isHistoryLoading}
+                    >
+                      {isHistoryLoading
+                        ? 'Loading...'
+                        : draft.uiLocale === 'zhCn'
+                          ? '刷新历史记录'
+                          : 'Refresh history'}
+                    </button>
+                    {historyEntries.length > 0 && (
+                      <ul className="mt-2 space-y-2">
+                        {historyEntries.map((entry) => (
+                          <li
+                            key={entry.id}
+                            className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-900">
+                                {entry.recognizedTitle ??
+                                  (draft.uiLocale === 'zhCn'
+                                    ? '无标题'
+                                    : 'Untitled')}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {entry.language} · {entry.platform} ·{' '}
+                                {entry.model}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className="ml-2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                              onClick={() =>
+                                void handleDeleteHistoryEntry(entry.id)
+                              }
+                              aria-label={messages.actions.deleteHistoryEntry}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {historyEntries.length === 0 && !isHistoryLoading && (
+                      <p className="mt-2 text-sm text-slate-500">
+                        {draft.uiLocale === 'zhCn'
+                          ? '暂无历史记录'
+                          : 'No history entries'}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </form>
           </section>

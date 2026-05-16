@@ -40,6 +40,7 @@ describe('shared frontend types', () => {
       requestTimeoutSeconds: 60,
       streamingEnabled: true,
       defaultLanguage: 'cpp20',
+      platformFormat: 'acm',
       outputSpeed: 'normal',
       customCharactersPerSecond: 24,
       globalShortcut: 'Ctrl+Shift+Q',
