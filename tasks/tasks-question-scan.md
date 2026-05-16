@@ -42,6 +42,7 @@
 - `AGENTS.md` - 进入这个仓库工作的代理级说明。
 - `docs/development-workflow.md` - 固定的执行流程，包含任务、验证、提交和发布检查点。
 - `docs/developer-setup.md` - 开发环境快照、安装步骤、一键脚本说明和常见问题。
+- `docs/manual-verification-checklist.md` - MVP 手动验证清单，覆盖全部 PRD 功能需求用例。
 - `tasks/tasks-question-scan.md` - MVP 任务、阶段用例、进度状态和相关文件索引。
 - `scripts/setup.ps1` - Windows 开发环境检查和依赖安装脚本。
 - `scripts/dev.ps1` - 一键启动 Tauri 开发环境的脚本。
