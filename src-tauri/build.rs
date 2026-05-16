@@ -9,6 +9,7 @@ fn main() {
             "hide_main_window",
             "toggle_main_window",
             "set_tray_status",
+            "send_ai_request",
         ]),
     ))
     .expect("failed to run tauri build script");

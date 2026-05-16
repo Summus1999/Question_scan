@@ -13,12 +13,19 @@ pub enum AppError {
     TrayIconUnavailable,
     #[error("The settings file could not be saved.")]
     SettingsSaveFailed,
+    #[allow(dead_code)]
+    #[error("The API key could not be stored securely. {reason}")]
+    ApiKeyStorageFailed { reason: String },
+    #[error("The provider configuration is invalid. {reason}")]
+    ProviderConfigurationInvalid { reason: String },
     #[error("The global shortcut `{shortcut}` is already registered by this Question Scan process. Restart the app if this message keeps appearing.")]
     GlobalShortcutAlreadyRegisteredByThisApp { shortcut: String },
     #[error("The global shortcut `{shortcut}` is already in use by another app or the system. Choose another shortcut or disable the global shortcut. Details: {reason}")]
     GlobalShortcutOccupiedByAnotherApp { shortcut: String, reason: String },
     #[error("The global shortcut `{shortcut}` could not be registered. Choose another shortcut or disable the global shortcut. Details: {reason}")]
     GlobalShortcutRegistrationFailed { shortcut: String, reason: String },
+    #[error("The AI request failed. {message}")]
+    AiRequestFailed { code: String, message: String },
 }
 
 impl AppError {
@@ -28,11 +35,14 @@ impl AppError {
             Self::MainWindowUnavailable => "mainWindowUnavailable",
             Self::TrayIconUnavailable => "trayIconUnavailable",
             Self::SettingsSaveFailed => "settingsSaveFailed",
+            Self::ApiKeyStorageFailed { .. } => "apiKeyStorageFailed",
+            Self::ProviderConfigurationInvalid { .. } => "providerConfigurationInvalid",
             Self::GlobalShortcutAlreadyRegisteredByThisApp { .. } => {
                 "globalShortcutAlreadyRegisteredByThisApp"
             }
             Self::GlobalShortcutOccupiedByAnotherApp { .. } => "globalShortcutOccupiedByAnotherApp",
             Self::GlobalShortcutRegistrationFailed { .. } => "globalShortcutRegistrationFailed",
+            Self::AiRequestFailed { .. } => "aiRequestFailed",
         }
     }
 }

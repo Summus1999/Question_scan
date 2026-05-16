@@ -3,12 +3,14 @@ import {
   BACKEND_COMMANDS,
   FRONTEND_EVENTS,
   hideMainWindow,
+  listenAiStreamEvent,
   listenGlobalShortcutTriggered,
   listenOpenSettings,
   listenRuntimeStateChanged,
   loadAppState,
   resetSettings,
   saveSettings,
+  sendAiRequest,
   setTrayStatus,
   showMainWindow,
   toggleMainWindow,
@@ -42,6 +44,7 @@ describe('Tauri API wrappers', () => {
       'hide_main_window',
       'toggle_main_window',
       'set_tray_status',
+      'send_ai_request',
     ]);
   });
 
@@ -62,6 +65,11 @@ describe('Tauri API wrappers', () => {
     await hideMainWindow();
     await toggleMainWindow();
     await setTrayStatus('generating');
+    await sendAiRequest(
+      'test instruction',
+      new Uint8Array([1, 2, 3]),
+      'image/png',
+    );
 
     expect(invokeMock).toHaveBeenNthCalledWith(1, 'save_settings', {
       settings: DEFAULT_SETTINGS,
@@ -73,6 +81,11 @@ describe('Tauri API wrappers', () => {
     expect(invokeMock).toHaveBeenNthCalledWith(6, 'set_tray_status', {
       status: 'generating',
     });
+    expect(invokeMock).toHaveBeenNthCalledWith(7, 'send_ai_request', {
+      instruction: 'test instruction',
+      imageBytes: [1, 2, 3],
+      imageMimeType: 'image/png',
+    });
   });
 
   it('registers frontend listeners for backend runtime events', async () => {
@@ -83,6 +96,7 @@ describe('Tauri API wrappers', () => {
     await listenGlobalShortcutTriggered(handler);
     await listenOpenSettings(handler);
     await listenRuntimeStateChanged(handler);
+    await listenAiStreamEvent(handler);
 
     expect(listenMock).toHaveBeenNthCalledWith(
       1,
@@ -97,6 +111,11 @@ describe('Tauri API wrappers', () => {
     expect(listenMock).toHaveBeenNthCalledWith(
       3,
       FRONTEND_EVENTS.runtimeStateChanged,
+      handler,
+    );
+    expect(listenMock).toHaveBeenNthCalledWith(
+      4,
+      FRONTEND_EVENTS.aiStreamEvent,
       handler,
     );
   });

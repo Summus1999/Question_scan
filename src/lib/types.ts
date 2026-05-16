@@ -93,8 +93,12 @@ export interface RuntimeState {
 }
 
 export interface AppSettings {
+  providerName: string;
   providerBaseUrl: string;
+  providerApiKey: string;
   providerModel: string;
+  requestTimeoutSeconds: number;
+  streamingEnabled: boolean;
   defaultLanguage: LanguageId;
   outputSpeed: OutputSpeed;
   customCharactersPerSecond: number;
@@ -119,6 +123,30 @@ export interface AppState extends RuntimeState {
   globalShortcutTriggerCount: number;
 }
 
+// ------------------------------------------------------------------------------
+// AI streaming event payloads emitted by the Rust backend.
+// ------------------------------------------------------------------------------
+
+export type AiStreamChunkPayload = {
+  type: 'chunk';
+  content: string;
+};
+
+export type AiStreamDonePayload = {
+  type: 'done';
+};
+
+export type AiStreamErrorPayload = {
+  type: 'error';
+  code: string;
+  message: string;
+};
+
+export type AiStreamEventPayload =
+  | AiStreamChunkPayload
+  | AiStreamDonePayload
+  | AiStreamErrorPayload;
+
 export const LANGUAGE_OPTIONS = [
   { value: 'cpp20', label: 'C++20' },
   { value: 'cpp17', label: 'C++17' },
@@ -138,8 +166,12 @@ export const OUTPUT_SPEED_OPTIONS = [
 ] as const satisfies ReadonlyArray<SelectOption<OutputSpeed>>;
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  providerName: 'OpenAI-compatible',
   providerBaseUrl: 'https://api.openai.com/v1',
+  providerApiKey: '',
   providerModel: 'gpt-4o-mini',
+  requestTimeoutSeconds: 60,
+  streamingEnabled: true,
   defaultLanguage: 'cpp20',
   outputSpeed: 'normal',
   customCharactersPerSecond: 24,

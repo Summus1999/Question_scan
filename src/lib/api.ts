@@ -1,6 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { type Event, listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { AppSettings, AppState, TrayStatus } from './types';
+import type {
+  AiStreamEventPayload,
+  AppSettings,
+  AppState,
+  TrayStatus,
+} from './types';
 
 export const BACKEND_COMMANDS = {
   loadAppState: 'load_app_state',
@@ -10,12 +15,14 @@ export const BACKEND_COMMANDS = {
   hideMainWindow: 'hide_main_window',
   toggleMainWindow: 'toggle_main_window',
   setTrayStatus: 'set_tray_status',
+  sendAiRequest: 'send_ai_request',
 } as const;
 
 export const FRONTEND_EVENTS = {
   globalShortcutTriggered: 'question-scan:global-shortcut-triggered',
   openSettings: 'question-scan:open-settings',
   runtimeStateChanged: 'question-scan:runtime-state-changed',
+  aiStreamEvent: 'question-scan:ai-stream-event',
 } as const;
 
 type BackendCommandSpec = {
@@ -46,6 +53,14 @@ type BackendCommandSpec = {
   [BACKEND_COMMANDS.setTrayStatus]: {
     payload: { status: TrayStatus };
     response: AppState;
+  };
+  [BACKEND_COMMANDS.sendAiRequest]: {
+    payload: {
+      instruction: string;
+      imageBytes: number[];
+      imageMimeType: string;
+    };
+    response: undefined;
   };
 };
 
@@ -141,4 +156,24 @@ export function listenRuntimeStateChanged(
     FRONTEND_EVENTS.runtimeStateChanged,
     handler,
   );
+}
+
+// Listens for AI streaming chunks, completion, or errors from the Rust backend.
+export function listenAiStreamEvent(
+  handler: (event: Event<AiStreamEventPayload>) => void,
+): Promise<UnlistenFn> {
+  return listen<AiStreamEventPayload>(FRONTEND_EVENTS.aiStreamEvent, handler);
+}
+
+// Starts an AI multimodal request. Results arrive via listenAiStreamEvent.
+export function sendAiRequest(
+  instruction: string,
+  imageBytes: Uint8Array,
+  imageMimeType: string,
+): Promise<void> {
+  return invokeBackend(BACKEND_COMMANDS.sendAiRequest, {
+    instruction,
+    imageBytes: Array.from(imageBytes),
+    imageMimeType,
+  });
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  AiStreamEventPayload,
   QuestionRecognitionResult,
   RecognitionConfidenceRoute,
 } from './types';
@@ -32,8 +33,12 @@ describe('shared frontend types', () => {
 
   it('keeps stage 1 defaults aligned with backend settings defaults', () => {
     expect(DEFAULT_SETTINGS).toEqual({
+      providerName: 'OpenAI-compatible',
       providerBaseUrl: 'https://api.openai.com/v1',
+      providerApiKey: '',
       providerModel: 'gpt-4o-mini',
+      requestTimeoutSeconds: 60,
+      streamingEnabled: true,
       defaultLanguage: 'cpp20',
       outputSpeed: 'normal',
       customCharactersPerSecond: 24,
@@ -138,5 +143,26 @@ describe('shared frontend types', () => {
       confirmationMinConfidence: 0.55,
     });
     expect(route).toBe('needsConfirmation');
+  });
+
+  it('keeps the AI stream event payload shapes aligned with the backend event contract', () => {
+    const chunk = { type: 'chunk' as const, content: 'hello' };
+    const done = { type: 'done' as const };
+    const error = {
+      type: 'error' as const,
+      code: 'invalidApiKey',
+      message: 'The API key was rejected.',
+    };
+
+    const _chunkPayload: AiStreamEventPayload = chunk;
+    const _donePayload: AiStreamEventPayload = done;
+    const _errorPayload: AiStreamEventPayload = error;
+
+    expect(chunk).toEqual({ type: 'chunk', content: 'hello' });
+    expect(done).toEqual({ type: 'done' });
+    expect(error).toMatchObject({
+      type: 'error',
+      code: 'invalidApiKey',
+    });
   });
 });

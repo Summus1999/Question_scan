@@ -12,7 +12,8 @@
     "allow-show-main-window",
     "allow-hide-main-window",
     "allow-toggle-main-window",
-    "allow-set-tray-status"
+    "allow-set-tray-status",
+    "allow-send-ai-request"
   ],
   "platforms": ["windows"]
 }

@@ -1,7 +1,8 @@
 use crate::errors::{AppError, AppResult};
+use crate::provider::{build_openai_multimodal_request, OpenAiImageInput};
 use crate::runtime::RuntimeStore;
 use crate::settings::{AppSettings, AppSnapshot, SettingsStore};
-use crate::{shortcuts, tray};
+use crate::{shortcuts, streaming, tray};
 use tauri::{AppHandle, Manager, State};
 
 /// Returns the full state payload consumed by the React shell during startup and reload.
@@ -128,6 +129,42 @@ pub(crate) fn window_visible(app: &AppHandle) -> AppResult<bool> {
         tracing::error!(%error, "Could not inspect the main window visibility");
         AppError::MainWindowUnavailable
     })
+}
+
+/// Starts an AI multimodal request in the background and returns immediately.
+/// Streaming or non-streaming results are delivered via `question-scan:ai-stream-event`.
+#[tauri::command]
+pub async fn send_ai_request(
+    app: AppHandle,
+    store: State<'_, SettingsStore>,
+    instruction: String,
+    image_bytes: Vec<u8>,
+    image_mime_type: String,
+) -> AppResult<()> {
+    let settings = store.current();
+    let config = crate::provider::validate_provider_request_config(&settings).map_err(|error| {
+        AppError::ProviderConfigurationInvalid {
+            reason: error.to_string(),
+        }
+    })?;
+
+    let request = build_openai_multimodal_request(
+        &config,
+        instruction,
+        OpenAiImageInput::new(image_mime_type, image_bytes),
+    )
+    .map_err(|error| AppError::ProviderConfigurationInvalid {
+        reason: error.to_string(),
+    })?;
+
+    // Spawn the request so the command returns immediately.
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = streaming::send_openai_request(app, request).await {
+            tracing::error!(%error, "AI request failed");
+        }
+    });
+
+    Ok(())
 }
 
 fn snapshot(

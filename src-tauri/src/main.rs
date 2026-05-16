@@ -1,10 +1,16 @@
 mod commands;
 mod errors;
+mod language;
+mod output_parser;
+mod prompts;
+mod provider;
+mod provider_key_store;
 mod recognition;
 mod runtime;
 mod screenshot;
 mod settings;
 mod shortcuts;
+mod streaming;
 mod tray;
 
 use crate::errors::AppError;
@@ -68,6 +74,7 @@ fn main() {
             commands::hide_main_window,
             commands::toggle_main_window,
             commands::set_tray_status,
+            commands::send_ai_request,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Question Scan");
