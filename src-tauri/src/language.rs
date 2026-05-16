@@ -1,5 +1,12 @@
+/**
+ * Question Scan 编程语言和平台格式定义模块（阶段 6）。
+ *
+ * 职责：定义支持的编程语言、平台格式、输出章节等枚举和元数据。
+ * 这是提示词构造、代码解析和结果渲染的统一类型基础。
+ */
 use serde::{Deserialize, Serialize};
 
+/** 支持的编程语言枚举，用于直接输出算法解法。 */
 /// Supported programming languages for direct algorithm solution output.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -15,6 +22,7 @@ pub enum LanguageId {
 }
 
 impl LanguageId {
+    /** 返回语言的人类可读标签。 */
     /// Returns the human-readable label for the language.
     pub fn label(self) -> &'static str {
         match self {
@@ -29,6 +37,7 @@ impl LanguageId {
         }
     }
 
+    /** 返回语言的默认文件扩展名。 */
     /// Returns the default file extension for the language.
     pub fn file_extension(self) -> &'static str {
         match self {
@@ -42,6 +51,7 @@ impl LanguageId {
         }
     }
 
+    /** 返回标准版本或运行时提示，用于提示词中的约束说明。 */
     /// Returns the standard version or runtime hint for prompt constraints.
     pub fn standard_hint(self) -> &'static str {
         match self {
@@ -63,6 +73,7 @@ impl Default for LanguageId {
     }
 }
 
+/** 平台格式变体：控制解法代码的结构风格。 */
 /// Platform format variants that control how the solution code is structured.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -76,6 +87,7 @@ pub enum PlatformFormat {
 }
 
 impl PlatformFormat {
+    /** 返回平台格式的人类可读标签。 */
     /// Returns the human-readable label for the platform format.
     pub fn label(self) -> &'static str {
         match self {
@@ -92,6 +104,7 @@ impl Default for PlatformFormat {
     }
 }
 
+/** 支持语言的元数据，用于构建提示词和渲染结果。 */
 /// Metadata for a supported language used when building prompts and rendering results.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LanguageMetadata {
@@ -112,6 +125,7 @@ impl From<LanguageId> for LanguageMetadata {
     }
 }
 
+/** AI 预期输出的固定章节，用于结构化解析结果。 */
 /// The fixed output sections that the AI is expected to produce.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -125,6 +139,7 @@ pub enum OutputSection {
 }
 
 impl OutputSection {
+    /** 返回章节标题，用于提示词和结果解析。 */
     /// Returns the section header used in prompts and result parsing.
     pub fn header(self) -> &'static str {
         match self {
@@ -138,6 +153,7 @@ impl OutputSection {
     }
 }
 
+/** 返回所有支持的语言 ID，按显示顺序排列。 */
 /// All supported language IDs in display order.
 pub fn all_language_ids() -> Vec<LanguageId> {
     vec![
@@ -152,6 +168,7 @@ pub fn all_language_ids() -> Vec<LanguageId> {
     ]
 }
 
+/** 返回所有支持的平台格式，按显示顺序排列。 */
 /// All supported platform formats in display order.
 pub fn all_platform_formats() -> Vec<PlatformFormat> {
     vec![

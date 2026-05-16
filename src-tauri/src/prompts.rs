@@ -1,5 +1,15 @@
+/**
+ * Question Scan 提示词构建模块（阶段 6）。
+ *
+ * 职责：根据语言、平台格式和识别结果构建发送给 AI 的系统提示词。
+ * 包含：主解法提示词、语言特定约束、平台签名提示。
+ * 提示词结构决定了 AI 输出的格式，output_parser.rs 据此解析结果。
+ */
 use crate::language::{LanguageId, PlatformFormat};
 
+/** 构建引导 AI 生成结构化算法解法的系统指令。
+ * 包含：语言约束、平台格式、识别到的标题/文本、固定输出章节结构。
+ */
 /// Builds the system instruction that guides the AI to produce structured algorithm solutions.
 pub fn build_solution_prompt(
     language: LanguageId,
@@ -58,6 +68,7 @@ Rules:
     )
 }
 
+/** 构建语言特定约束，注入提示词以提升代码质量（如 C++ fast IO）。 */
 /// Language-specific constraints injected into the prompt to improve code quality.
 pub fn build_language_constraints(language: LanguageId) -> &'static str {
     match language {
@@ -88,6 +99,7 @@ pub fn build_language_constraints(language: LanguageId) -> &'static str {
     }
 }
 
+/** 构建平台特定签名提示，告知 AI 正确的输入输出模式（ACM stdin/stdout vs LeetCode 函数）。 */
 /// Platform-specific signature hints injected into the prompt.
 pub fn build_platform_signature_hint(platform: PlatformFormat) -> &'static str {
     match platform {

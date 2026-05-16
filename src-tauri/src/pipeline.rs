@@ -1,3 +1,10 @@
+/**
+ * Question Scan 截图→AI 流水线模块（阶段 5 核心 orchestrator）。
+ *
+ * 职责：协调从截图捕获到 AI 响应的完整端到端流程。
+ * 流程：截图 → 压缩 → 构建提示词 → 验证配置 → 构造请求 → 保存会话 → 发送请求 → 清理。
+ * 错误通过 `question-scan:ai-stream-event` 事件发射给前端，无需轮询。
+ */
 use crate::commands::map_settings_language_to_language_module;
 use crate::provider::{
     build_openai_multimodal_request, OpenAiImageInput, validate_provider_request_config,
@@ -12,19 +19,20 @@ use crate::streaming::{send_openai_request, AiStreamEvent};
 use crate::{prompts, tray};
 use tauri::{AppHandle, Emitter, Manager};
 
+/** 在后台运行完整的截图→AI 流水线。
+ *
+ * 流程：
+ * 1. 捕获当前显示器截图。
+ * 2. 将截图压缩为 JPEG 载荷。
+ * 3. 根据当前设置构建解法提示词。
+ * 4. 验证提供商配置。
+ * 5. 构建并发送 OpenAI-compatible 多模态请求。
+ * 6. 保存会话数据，支持后续语言切换复用。
+ * 7. 在每个阶段更新托盘状态。
+ *
+ * 错误通过 `question-scan:ai-stream-event` 事件发射给前端，React 壳无需轮询。
+ */
 /// Runs the full screenshot-to-AI pipeline in the background.
-///
-/// Flow:
-/// 1. Capture the current display.
-/// 2. Compress the screenshot into a JPEG payload.
-/// 3. Build the solution prompt from current settings.
-/// 4. Validate provider configuration.
-/// 5. Build and send the OpenAI-compatible multimodal request.
-/// 6. Save session data so language switching works later.
-/// 7. Update tray status through each phase.
-///
-/// Errors are emitted to the frontend via `question-scan:ai-stream-event` so
-/// the React shell can show them without polling.
 pub async fn run_screenshot_to_ai_pipeline(app: AppHandle) {
     tracing::info!("Starting screenshot-to-AI pipeline");
 
@@ -168,6 +176,7 @@ pub async fn run_screenshot_to_ai_pipeline(app: AppHandle) {
     let _ = cleanup_captured_screens(&captured_screens);
 }
 
+/** 安全地设置托盘状态：如果 RuntimeStore 不可用则静默跳过。 */
 fn set_tray_status_safe(app: &AppHandle, status: TrayStatus) {
     if let Some(runtime) = app.try_state::<RuntimeStore>() {
         runtime.set_tray_status(status);
@@ -175,6 +184,7 @@ fn set_tray_status_safe(app: &AppHandle, status: TrayStatus) {
     let _ = tray::sync_tray(app);
 }
 
+/** 发射流水线错误事件给前端，并记录警告日志。 */
 fn emit_pipeline_error(app: &AppHandle, code: &str, message: &str) {
     let event = AiStreamEvent::Error {
         code: code.to_string(),

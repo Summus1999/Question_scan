@@ -1,3 +1,11 @@
+/**
+ * Question Scan 题目区域识别模块（阶段 4）。
+ *
+ * 职责：通过视觉模型自动识别截图中的算法题目区域，返回边界框和置信度。
+ * 包含：低分辨率图片准备、识别请求构造、模型响应解析、置信度路由分类、
+ *       低分辨率框到原始高分辨率截图的坐标映射与裁剪。
+ * 置信度路由：高置信度自动接受 → 中置信度需用户确认 → 低置信度手动框选兜底。
+ */
 use crate::screenshot::{compress_image_for_ai, image, ScreenshotCompressionConfig};
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +15,7 @@ pub const RECOGNITION_IMAGE_MIME_TYPE: &str = "image/jpeg";
 pub const DEFAULT_RECOGNITION_AUTO_ACCEPT_CONFIDENCE: f64 = 0.85;
 pub const DEFAULT_RECOGNITION_CONFIRMATION_MIN_CONFIDENCE: f64 = 0.55;
 
+/** 题目区域边界框，由视觉模型返回。 */
 /// The bounding box returned by question-region recognition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,6 +26,7 @@ pub struct QuestionBoundingBox {
     pub height: u32,
 }
 
+/** 题目区域识别结果，包含边界框、置信度、标题和题目文本。 */
 /// The shared recognition result returned by question-region detection.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,6 +38,7 @@ pub struct QuestionRecognitionResult {
     pub reason: String,
 }
 
+/** 置信度路由决策：根据识别置信度决定后续处理路径。 */
 /// The routing decision derived from the recognition confidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,6 +48,7 @@ pub enum RecognitionConfidenceRoute {
     ManualFallback,
 }
 
+/** 置信度阈值配置：划分自动接受、需确认、手动兜底三条路径的边界。 */
 /// The confidence thresholds that split recognition into accept, confirm, or fallback paths.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RecognitionConfidenceThresholds {
@@ -54,6 +66,7 @@ impl Default for RecognitionConfidenceThresholds {
 }
 
 impl RecognitionConfidenceThresholds {
+    /** 修复非法阈值，确保确认区间上限不超过自动接受阈值。 */
     /// Repairs invalid threshold values and keeps the confirmation band below auto accept.
     pub fn sanitized(self) -> Self {
         let auto_accept_min_confidence =
@@ -69,6 +82,7 @@ impl RecognitionConfidenceThresholds {
     }
 }
 
+/** 题目区域识别请求：包含提示词和低分辨率图片载荷。 */
 /// The low-resolution recognition payload and prompt sent to the vision model.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionRegionRecognitionRequest {
@@ -76,6 +90,7 @@ pub struct QuestionRegionRecognitionRequest {
     pub image: RecognitionImageInput,
 }
 
+/** 从验证后的识别结果生成的高分辨率裁剪区域。 */
 /// A high-resolution crop produced from a validated recognition result.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CroppedQuestionRegion {
@@ -84,6 +99,7 @@ pub struct CroppedQuestionRegion {
     pub image: image::RgbaImage,
 }
 
+/** 识别图片配置：控制发送给视觉模型的低分辨率图片尺寸和质量。 */
 /// Controls the size and quality of the low-resolution image sent to recognition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RecognitionImageConfig {
@@ -101,6 +117,7 @@ impl Default for RecognitionImageConfig {
 }
 
 impl RecognitionImageConfig {
+    /** 修复非法的识别图片参数。 */
     /// Repairs invalid recognition-image settings so the request shape stays predictable.
     pub fn sanitized(self) -> Self {
         Self {
@@ -110,6 +127,7 @@ impl RecognitionImageConfig {
     }
 }
 
+/** 识别图片输入：低分辨率图片载荷，包含原始尺寸和缩放后的尺寸信息。 */
 /// The low-resolution image payload sent to the visual recognition step.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecognitionImageInput {
@@ -122,11 +140,13 @@ pub struct RecognitionImageInput {
 }
 
 impl RecognitionImageInput {
+    /** 计算从低分辨率输入到原始图片的水平缩放因子。 */
     /// Returns the horizontal scale factor from the low-resolution input back to the source image.
     pub fn scale_x(&self) -> f64 {
         self.original_width as f64 / self.width as f64
     }
 
+    /** 计算从低分辨率输入到原始图片的垂直缩放因子。 */
     /// Returns the vertical scale factor from the low-resolution input back to the source image.
     pub fn scale_y(&self) -> f64 {
         self.original_height as f64 / self.height as f64
@@ -134,6 +154,7 @@ impl RecognitionImageInput {
 }
 
 impl QuestionRecognitionResult {
+    /** 根据置信度阈值将识别结果分类为自动接受、需确认或手动兜底。 */
     /// Classifies a recognition result into auto-accept, confirmation, or fallback.
     pub fn confidence_route(
         &self,
@@ -144,6 +165,9 @@ impl QuestionRecognitionResult {
 }
 
 impl QuestionBoundingBox {
+    /** 验证边界框是否在图片范围内且尺寸为正。
+     * 用于防止模型返回超出图片边界或零尺寸的非法框。
+     */
     /// Verifies that the box stays inside the given image bounds and has a positive size.
     pub fn validate_within(
         &self,
@@ -186,6 +210,7 @@ const QUESTION_REGION_RESPONSE_SHAPE: &str = r#"{
   "reason": ""
 }"#;
 
+/** 构建题目区域识别请求：将原始截图压缩为低分辨率图片并生成提示词。 */
 /// Builds the request payload for low-resolution question-region recognition.
 pub(crate) fn build_question_region_recognition_request(
     image: &image::RgbaImage,
@@ -197,6 +222,7 @@ pub(crate) fn build_question_region_recognition_request(
     Ok(QuestionRegionRecognitionRequest { prompt, image })
 }
 
+/** 构建提示词，要求模型返回最可能的题目区域边界框（JSON 格式）。 */
 /// Creates the prompt that asks the model to return the most likely question region.
 pub(crate) fn build_question_region_prompt(image: &RecognitionImageInput) -> String {
     format!(
@@ -220,6 +246,7 @@ pub(crate) fn build_question_region_prompt(image: &RecognitionImageInput) -> Str
     )
 }
 
+/** 解析模型响应为识别结果结构体，支持带代码围栏和不带围栏的 JSON。 */
 /// Parses the model response into the shared recognition contract.
 pub(crate) fn parse_question_recognition_result(
     response: &str,
@@ -228,6 +255,7 @@ pub(crate) fn parse_question_recognition_result(
     serde_json::from_str::<QuestionRecognitionResult>(payload).map_err(|error| error.to_string())
 }
 
+/** 根据置信度分数和阈值，分类为自动接受、需确认或手动兜底路径。 */
 /// Classifies a recognition confidence score into the auto-accept, confirmation, or fallback path.
 pub(crate) fn classify_question_recognition_confidence(
     confidence: f64,
@@ -245,6 +273,7 @@ pub(crate) fn classify_question_recognition_confidence(
     }
 }
 
+/** 验证识别结果是否位于低分辨率识别图片的边界内。 */
 /// Validates the model response against the low-resolution recognition image bounds.
 pub(crate) fn validate_question_recognition_result(
     recognition: QuestionRecognitionResult,
@@ -256,6 +285,9 @@ pub(crate) fn validate_question_recognition_result(
     Ok(recognition)
 }
 
+/** 使用低分辨率输入上产生的识别框，裁剪原始高分辨率截图。
+ * 流程：验证识别结果 → 将低分辨率坐标映射回原始尺寸 → 执行裁剪。
+ */
 /// Crops the original screenshot using a recognition box that was produced on the low-resolution input.
 pub(crate) fn crop_original_question_region(
     source: &image::RgbaImage,
@@ -289,6 +321,7 @@ pub(crate) fn crop_original_question_region(
     })
 }
 
+/** 从模型响应中提取 JSON 载荷，去除可能的 markdown 代码围栏。 */
 fn extract_json_payload(response: &str) -> &str {
     let trimmed = response.trim();
     let payload = trimmed
@@ -301,6 +334,7 @@ fn extract_json_payload(response: &str) -> &str {
     payload.strip_suffix("```").unwrap_or(payload).trim()
 }
 
+/** 清理置信度分数：限制在 [0, 1] 范围内，处理 NaN/Inf 等非法值。 */
 fn sanitize_confidence_score(confidence: f64) -> f64 {
     if confidence.is_finite() {
         confidence.clamp(0.0, 1.0)
@@ -309,10 +343,14 @@ fn sanitize_confidence_score(confidence: f64) -> f64 {
     }
 }
 
+/** 清理置信度阈值：复用分数清理逻辑。 */
 fn sanitize_confidence_threshold(threshold: f64) -> f64 {
     sanitize_confidence_score(threshold)
 }
 
+/** 将低分辨率识别框映射回原始高分辨率图片坐标。
+ * 使用 floor/ceil 确保不丢失像素，并进行边界裁剪。
+ */
 fn map_recognition_box_to_original(
     bounding_box: QuestionBoundingBox,
     image: &RecognitionImageInput,
@@ -338,6 +376,9 @@ fn map_recognition_box_to_original(
     Ok(crop_box)
 }
 
+/** 准备用于题目区域识别的紧凑 JPEG 图片。
+ * 将原始截图压缩为低分辨率版本，降低视觉模型的 Token 消耗。
+ */
 /// Prepares a compact JPEG image for question-region recognition.
 pub(crate) fn prepare_recognition_image(
     image: &image::RgbaImage,

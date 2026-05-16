@@ -61,7 +61,10 @@ type BannerTone = 'neutral' | 'warning' | 'error';
 const panelClassName =
   'rounded-lg border border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-200/60';
 
-// Repairs partial settings snapshots so older persisted files still get a UI locale.
+/**
+ * 修复可能不完整的设置快照。
+ * 旧版本持久化文件可能缺少 uiLocale 字段，此函数确保回退到默认值。
+ */
 function normalizeSettings(settings: AppSettings): AppSettings {
   return {
     ...DEFAULT_SETTINGS,
@@ -70,7 +73,12 @@ function normalizeSettings(settings: AppSettings): AppSettings {
   };
 }
 
-// Owns the stage-1 UI state bridge between React and the Tauri backend snapshot.
+/**
+ * Question Scan 主应用组件。
+ *
+ * 职责：作为 React 与 Tauri 后端状态之间的桥梁，管理所有 UI 状态。
+ * 包含：设置表单、结果面板、历史记录、AI 流式输出、手动框选覆盖层。
+ */
 function App() {
   const settingsSectionRef = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<AppState>(DEFAULT_APP_STATE);
@@ -136,7 +144,10 @@ function App() {
     [draft.uiLocale],
   );
 
-  // Converts serialized Tauri command errors into user-facing copy when Rust supplies it.
+  /**
+   * 将 Tauri 命令错误转换为用户可读的文案。
+   * 优先使用 Rust 返回的错误消息，否则使用 fallback。
+   */
   const errorMessage = useCallback((error: unknown, fallback: string) => {
     if (error instanceof Error) {
       return error.message;
@@ -155,7 +166,10 @@ function App() {
     return fallback;
   }, []);
 
-  // Keeps every backend snapshot aligned with the current frontend settings contract.
+  /**
+   * 将后端状态快照同步到前端。
+   * 设置表单、运行时面板等所有 UI 都依赖此函数刷新。
+   */
   const applySnapshot = useCallback((snapshot: AppState) => {
     const settings = normalizeSettings(snapshot.settings);
     setState({
@@ -165,7 +179,10 @@ function App() {
     setDraft(settings);
   }, []);
 
-  // Reloads backend state and is the first place to inspect if startup hydration fails.
+  /**
+   * 应用启动时的状态水合函数。
+   * 从后端加载初始状态，如果失败则回退到默认状态并显示错误提示。
+   */
   const hydrate = useCallback(async () => {
     setIsBusy(true);
     setNotice(null);
@@ -258,7 +275,10 @@ function App() {
     [cropOverlayMessages.confirmNotice],
   );
 
-  // AI stream event listener
+  /**
+   * AI 流式输出事件监听。
+   * 监听后端发射的 chunk/done/error 事件，驱动打字机效果和状态变更。
+   */
   useEffect(() => {
     let cancelled = false;
     let unlistenStream: (() => void) | null = null;
@@ -372,7 +392,11 @@ function App() {
     messages.notices.shortcutTriggered,
   ]);
 
-  // Result panel action handlers
+  // ---------------------------------------------------------------------------
+  // 结果面板动作处理器
+  // ---------------------------------------------------------------------------
+
+  /** 从完整答案中提取 fenced code block 并复制到剪贴板。 */
   const handleCopyCode = useCallback(() => {
     // Extract code blocks from fullText
     const codeBlockRegex = /```[\w]*\n([\s\S]*?)```/g;
@@ -394,6 +418,7 @@ function App() {
     }
   }, [typewriter.fullText, messages.resultPanel.codeCopied]);
 
+  /** 复制完整答案（含 Markdown 格式）到剪贴板。 */
   const handleCopyFullAnswer = useCallback(() => {
     if (typewriter.fullText) {
       void navigator.clipboard.writeText(typewriter.fullText);
@@ -404,6 +429,7 @@ function App() {
     }
   }, [typewriter.fullText, messages.resultPanel.copyFullAnswerNotice]);
 
+  /** 清空结果面板，重置打字机和错误状态。 */
   const handleClearResult = useCallback(() => {
     typewriter.reset();
     setAiError(null);
@@ -418,6 +444,7 @@ function App() {
     });
   }, [typewriter, messages.resultPanel.clearResultNotice]);
 
+  /** 重新生成答案（使用当前设置）。 */
   const handleRegenerate = useCallback(() => {
     typewriter.reset();
     setAiError(null);
@@ -433,6 +460,10 @@ function App() {
     // TODO: Trigger actual AI request regeneration when screenshot flow is wired
   }, [typewriter, messages.resultPanel.regenerateNotice]);
 
+  /**
+   * 切换语言并重新生成答案。
+   * 调用后端 regenerate_with_language 命令复用同一张截图数据。
+   */
   const handleSwitchLanguage = useCallback(
     async (language: LanguageId) => {
       setCurrentLanguage(language);
@@ -538,7 +569,10 @@ function App() {
     [draft, state.settings],
   );
 
-  // Keeps settings form changes typed to the AppSettings contract.
+  /**
+   * 更新设置表单中的单个字段。
+   * 泛型约束保证 key 和 value 的类型匹配 AppSettings 契约。
+   */
   const updateField = useCallback(
     <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
       setDraft((current) => ({
@@ -549,7 +583,10 @@ function App() {
     [],
   );
 
-  // Persists the draft settings and re-syncs the UI from the backend snapshot.
+  /**
+   * 保存设置草稿到后端，并用返回的快照重新同步 UI。
+   * 保存成功后会显示提示，失败则显示错误信息。
+   */
   const persist = useCallback(async () => {
     setIsSaving(true);
     setNotice(null);
@@ -569,7 +606,10 @@ function App() {
     }
   }, [applySnapshot, draft, errorMessage, messages.notices.saveFailed]);
 
-  // Resets both backend settings and the local draft to the default profile.
+  /**
+   * 重置所有设置为默认值。
+   * 同时重置后端持久化数据和前端草稿状态。
+   */
   const handleReset = useCallback(async () => {
     setIsSaving(true);
     setNotice(null);
@@ -589,7 +629,10 @@ function App() {
     }
   }, [applySnapshot, errorMessage, messages.notices.resetFailed]);
 
-  // Centralizes window visibility commands so tray and header behavior stay comparable.
+  /**
+   * 统一的窗口显隐控制。
+   * 托盘菜单和标题栏按钮共用此函数，保证行为一致。
+   */
   const handleWindowAction = useCallback(
     async (action: 'show' | 'hide' | 'toggle') => {
       setNotice(null);
@@ -1264,7 +1307,10 @@ function App() {
   );
 }
 
-// Wraps a form control with the compact label treatment used throughout settings.
+/**
+ * 设置表单字段包装组件。
+ * 统一标签样式和布局，用于所有设置输入项。
+ */
 function Field({
   label,
   labelFor,
@@ -1291,7 +1337,10 @@ function Field({
   );
 }
 
-// Renders a settings boolean as a labeled checkbox row with explanatory copy.
+/**
+ * 设置开关行组件。
+ * 将布尔值渲染为带说明文字的复选框行。
+ */
 function ToggleRow({
   label,
   description,
@@ -1323,7 +1372,10 @@ function ToggleRow({
   );
 }
 
-// Maps backend status into the visible header health indicator.
+/**
+ * 状态指示器胶囊组件。
+ * 根据后端状态显示不同颜色的健康指示标签。
+ */
 function StatusPill({
   tone,
   children,
@@ -1349,7 +1401,10 @@ function StatusPill({
   );
 }
 
-// Standardizes compact icon buttons used by the shell command area.
+/**
+ * 操作按钮组件。
+ * 标题栏和工具栏共用的图标按钮，支持 primary/secondary 两种强调级别。
+ */
 function ActionButton({
   icon,
   label,
@@ -1383,7 +1438,10 @@ function ActionButton({
   );
 }
 
-// Provides a shared section header for settings and runtime panels.
+/**
+ * 区块标题组件。
+ * 设置区和运行状态面板的共享标题样式。
+ */
 function SectionTitle({
   icon,
   title,
@@ -1406,7 +1464,10 @@ function SectionTitle({
   );
 }
 
-// Shows a short dashboard metric in the shell header.
+/**
+ * 信息卡片组件。
+ * 在标题栏展示简短的仪表板指标（如窗口状态、托盘状态、版本号）。
+ */
 function InfoTile({ title, value }: { title: string; value: string }) {
   return (
     <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
@@ -1418,7 +1479,10 @@ function InfoTile({ title, value }: { title: string; value: string }) {
   );
 }
 
-// Formats runtime snapshot rows while keeping long values from breaking the panel.
+/**
+ * 运行时状态行组件。
+ * 格式化运行时快照的键值对，防止长文本撑破面板布局。
+ */
 function SummaryLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
@@ -1432,7 +1496,10 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-// Normalizes transient notices so backend warnings and errors are easy to compare.
+/**
+ * 通知横幅组件。
+ * 统一处理后端警告、错误和成功提示的样式和图标。
+ */
 function NoticeBanner({
   tone,
   children,

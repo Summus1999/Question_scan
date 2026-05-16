@@ -1,3 +1,9 @@
+/**
+ * Question Scan Tauri 命令处理器模块
+ *
+ * 职责：暴露给前端的所有 Tauri 命令（#[tauri::command]）。
+ * 这是前后端交互的唯一入口，所有前端通过 api.ts 调用的命令都在这里定义。
+ */
 use crate::errors::{AppError, AppResult};
 use crate::history::{HistoryEntry, HistoryStore};
 use crate::provider::{build_openai_multimodal_request, OpenAiImageInput};
@@ -8,7 +14,10 @@ use crate::settings::{AppSettings, AppSnapshot, SettingsStore};
 use crate::{prompts, shortcuts, streaming, tray};
 use tauri::{AppHandle, Manager, State};
 
-/// Returns the full state payload consumed by the React shell during startup and reload.
+/**
+ * 加载应用完整状态快照。
+ * 前端启动时调用此命令获取初始状态，包含设置、运行时状态和窗口信息。
+ */
 #[tauri::command]
 pub fn load_app_state(
     app: AppHandle,
@@ -18,7 +27,10 @@ pub fn load_app_state(
     snapshot(&app, &store, &runtime)
 }
 
-/// Persists user settings and returns a fresh snapshot so the frontend can re-sync.
+/**
+ * 保存用户设置。
+ * 校验设置值 → 同步快捷键 → 持久化到文件 → 返回新快照供前端同步。
+ */
 #[tauri::command]
 pub fn save_settings(
     app: AppHandle,
@@ -33,7 +45,10 @@ pub fn save_settings(
     snapshot(&app, &store, &runtime)
 }
 
-/// Restores default settings and returns the same snapshot contract as a save.
+/**
+ * 恢复默认设置。
+ * 重置后端持久化数据和快捷键状态，返回与保存命令相同的快照结构。
+ */
 #[tauri::command]
 pub fn reset_settings(
     app: AppHandle,
@@ -134,8 +149,11 @@ pub(crate) fn window_visible(app: &AppHandle) -> AppResult<bool> {
     })
 }
 
-/// Starts an AI multimodal request in the background and returns immediately.
-/// Streaming or non-streaming results are delivered via `question-scan:ai-stream-event`.
+/**
+ * 发起 AI 多模态请求（异步命令）。
+ * 立即返回，不阻塞前端。请求结果通过 `question-scan:ai-stream-event` 事件流推送。
+ * 同时保存请求数据到 SessionContext，供语言切换重新生成时使用。
+ */
 #[tauri::command]
 pub async fn send_ai_request(
     app: AppHandle,
@@ -184,9 +202,11 @@ pub async fn send_ai_request(
     Ok(())
 }
 
-/// Regenerates the AI solution using the same cropped image and recognized text
-/// but with a different programming language.
-/// Streaming or non-streaming results are delivered via `question-scan:ai-stream-event`.
+/**
+ * 切换语言重新生成答案（异步命令）。
+ * 复用 SessionContext 中保存的截图和识别数据，构造新语言的 prompt 重新请求。
+ * 结果同样通过 `question-scan:ai-stream-event` 事件流推送。
+ */
 #[tauri::command]
 pub async fn regenerate_with_language(
     app: AppHandle,
@@ -255,8 +275,11 @@ pub async fn regenerate_with_language(
     Ok(())
 }
 
-/// Extracts recognized title and text from a solution prompt by looking for
-/// the standard prompt sections. This is a best-effort parse for session storage.
+/**
+ * 从解题 prompt 中提取识别出的标题和文本。
+ * 用于将识别结果保存到 SessionContext，供语言切换时复用。
+ * 这是一个尽力而为的解析，依赖 prompt 中的固定前缀。
+ */
 fn extract_recognition_from_instruction(instruction: &str) -> (Option<String>, Option<String>) {
     let title = instruction
         .lines()
@@ -271,8 +294,11 @@ fn extract_recognition_from_instruction(instruction: &str) -> (Option<String>, O
     (title, text)
 }
 
-/// Maps the settings module's LanguageId to the language module's LanguageId.
-/// Both enums have identical variants, so this is a straightforward conversion.
+/**
+ * 将 settings 模块的 LanguageId 转换为 language 模块的 LanguageId。
+ * 两个枚举定义了相同的变体，此函数做简单的映射转换。
+ * TODO: 后续可考虑统一为一个模块中的定义，消除重复。
+ */
 pub(crate) fn map_settings_language_to_language_module(
     id: crate::settings::LanguageId,
 ) -> crate::language::LanguageId {
@@ -288,7 +314,7 @@ pub(crate) fn map_settings_language_to_language_module(
     }
 }
 
-/// Deletes all orphaned temporary images from the system temp directory.
+/** 清空系统临时目录中的遗留截图文件。 */
 #[tauri::command]
 pub fn clear_cache() -> AppResult<()> {
     let temp_dir = std::env::temp_dir().join("question-scan");
@@ -307,24 +333,28 @@ pub fn clear_cache() -> AppResult<()> {
     Ok(())
 }
 
-/// Returns the list of saved history entries.
+/** 获取已保存的历史记录列表。 */
 #[tauri::command]
 pub fn list_history(store: State<'_, HistoryStore>) -> AppResult<Vec<HistoryEntry>> {
     Ok(store.list())
 }
 
-/// Deletes a single history entry by its id.
+/** 根据 ID 删除单条历史记录。 */
 #[tauri::command]
 pub fn delete_history_entry(store: State<'_, HistoryStore>, id: String) -> AppResult<bool> {
     store.delete(&id)
 }
 
-/// Clears all history entries.
+/** 清空全部历史记录。 */
 #[tauri::command]
 pub fn clear_history(store: State<'_, HistoryStore>) -> AppResult<()> {
     store.clear()
 }
 
+/**
+ * 构建完整的应用状态快照。
+ * 几乎所有命令处理器的最后一步都是调用此函数，将最新状态返回给前端。
+ */
 fn snapshot(
     app: &AppHandle,
     store: &SettingsStore,

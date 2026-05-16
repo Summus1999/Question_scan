@@ -1,7 +1,14 @@
+/**
+ * Question Scan 运行时状态模块
+ *
+ * 职责：维护应用运行时的内存状态，包括托盘状态、截图状态、AI 结果状态、快捷键状态。
+ * 使用 RwLock 保证线程安全，所有状态变更都通过此模块的方法完成。
+ */
 use crate::settings::{AiResultState, ScreenshotState, TrayStatus};
 use serde::Serialize;
 use std::sync::RwLock;
 
+/** 运行时状态快照，可序列化后发送给前端。 */
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeSnapshot {
@@ -26,6 +33,10 @@ impl Default for RuntimeSnapshot {
     }
 }
 
+/**
+ * 运行时状态存储器。
+ * 作为 Tauri App State 注册到应用中，供命令处理器和托盘模块共享访问。
+ */
 #[derive(Debug, Default)]
 pub struct RuntimeStore {
     snapshot: RwLock<RuntimeSnapshot>,
@@ -33,12 +44,15 @@ pub struct RuntimeStore {
 }
 
 impl RuntimeStore {
-    /// Returns a cloned runtime snapshot so command handlers never hold the lock.
+    /** 获取运行时快照的克隆。命令处理器不应长期持有锁。 */
     pub fn snapshot(&self) -> RuntimeSnapshot {
         self.snapshot.read().expect("runtime lock poisoned").clone()
     }
 
-    /// Maps the tray phase into the visible runtime states used by the frontend shell.
+    /**
+     * 设置托盘状态，并同步更新截图状态和 AI 结果状态。
+     * 托盘状态是单一状态源，截图和 AI 状态由其派生。
+     */
     pub fn set_tray_status(&self, tray_status: TrayStatus) -> RuntimeSnapshot {
         let mut snapshot = self.snapshot.write().expect("runtime lock poisoned");
         snapshot.tray_status = tray_status;
@@ -71,7 +85,7 @@ impl RuntimeStore {
         snapshot.clone()
     }
 
-    /// Records which shortcut this process currently owns, if any.
+    /** 记录当前进程拥有的快捷键。None 表示未注册任何快捷键。 */
     pub fn set_global_shortcut_active(&self, shortcut: Option<String>) -> RuntimeSnapshot {
         *self
             .active_global_shortcut
@@ -86,7 +100,7 @@ impl RuntimeStore {
         snapshot.clone()
     }
 
-    /// Checks whether the requested shortcut is already owned by this process.
+    /** 检查指定快捷键是否已由本进程注册。 */
     pub fn is_global_shortcut_active(&self, shortcut: &str) -> bool {
         self.active_global_shortcut
             .read()
@@ -95,7 +109,7 @@ impl RuntimeStore {
             == Some(shortcut)
     }
 
-    /// Stores the latest shortcut registration problem so the UI can show a clear prompt.
+    /** 记录快捷键注册错误，供 UI 显示冲突提示。 */
     pub fn set_global_shortcut_error(&self, error: Option<String>) -> RuntimeSnapshot {
         if error.is_some() {
             *self
@@ -112,7 +126,7 @@ impl RuntimeStore {
         snapshot.clone()
     }
 
-    /// Marks a user-triggered shortcut event without starting real capture before stage 3.
+    /** 记录一次快捷键触发，更新托盘状态为截图中。 */
     pub fn record_global_shortcut_trigger(&self) -> RuntimeSnapshot {
         let mut snapshot = self.snapshot.write().expect("runtime lock poisoned");
         snapshot.global_shortcut_trigger_count += 1;

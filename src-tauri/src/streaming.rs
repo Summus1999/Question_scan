@@ -1,17 +1,28 @@
+/**
+ * Question Scan AI 流式响应处理模块（阶段 5）。
+ *
+ * 职责：发送 OpenAI-compatible 请求并处理流式（SSE）或非流式响应。
+ * 包含：请求执行、重试机制（指数退避）、SSE 解析、HTTP 错误分类、事件发射。
+ * 所有 AI 输出通过 `question-scan:ai-stream-event` 事件逐段推送给前端。
+ */
 use crate::errors::{AppError, AppResult};
 use crate::provider::PreparedOpenAiMultimodalRequest;
 use serde::Serialize;
 use std::pin::Pin;
 use tauri::Emitter;
 
+/** AI 流式请求期间发射给前端的事件类型。 */
 /// Events emitted to the frontend during a streaming AI request.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AiStreamEvent {
+    /** 从模型接收到的一段内容。 */
     /// A content chunk arrived from the model.
     Chunk { content: String },
+    /** 流正常结束。 */
     /// The stream finished normally.
     Done,
+    /** 流在网络或解析层失败。 */
     /// The stream failed at the network or parsing layer.
     Error { code: String, message: String },
 }
@@ -19,15 +30,15 @@ pub enum AiStreamEvent {
 const MAX_RETRIES: u32 = 3;
 const BASE_RETRY_DELAY_MS: u64 = 1000;
 
+/** 发送准备好的 OpenAI-compatible 请求，并将流式事件发射给前端。
+ *
+ * - stream=true：响应体按 SSE 逐行解析，每段内容发射 Chunk 事件。
+ * - stream=false：完整响应解析为 JSON，发射单个 Chunk 后接 Done。
+ *
+ * 临时失败（超时、网络错误、5xx、429）最多重试 MAX_RETRIES 次，使用指数退避。
+ * 不可重试错误（401、403、400 非图片相关）立即失败。
+ */
 /// Sends a prepared OpenAI-compatible request and emits streaming events to the frontend.
-///
-/// When `stream` is true the response body is treated as SSE and parsed line-by-line.
-/// When `stream` is false the full body is parsed as a normal JSON completion and emitted
-/// as a single Chunk followed by Done.
-///
-/// Temporary failures (timeouts, network errors, 5xx, 429) are retried up to `MAX_RETRIES`
-/// with exponential backoff. Non-retryable errors (401, 403, 400 without image keywords)
-/// fail immediately.
 pub async fn send_openai_request(
     app: tauri::AppHandle,
     request: PreparedOpenAiMultimodalRequest,
@@ -60,6 +71,7 @@ pub async fn send_openai_request(
     }))
 }
 
+/** 执行单次 OpenAI 请求：构建 HTTP 请求、发送、根据 stream 标志分发处理。 */
 async fn execute_openai_request(
     app: &tauri::AppHandle,
     request: &PreparedOpenAiMultimodalRequest,
@@ -91,6 +103,7 @@ async fn execute_openai_request(
     }
 }
 
+/** 判断错误是否值得重试（超时、网络错误、5xx、429 可重试）。 */
 /// Determines whether an error is worth retrying.
 fn is_retryable_error(error: &AppError) -> bool {
     let AppError::AiRequestFailed { code, .. } = error else {
@@ -102,6 +115,7 @@ fn is_retryable_error(error: &AppError) -> bool {
     )
 }
 
+/** 处理 SSE 流式响应：逐行解析 data: 事件，发射 Chunk/Done/Error 事件。 */
 async fn handle_streaming_response(
     app: tauri::AppHandle,
     response: reqwest::Response,
@@ -155,6 +169,7 @@ async fn handle_streaming_response(
     Ok(())
 }
 
+/** 处理非流式响应：解析完整 JSON，提取内容后发射 Chunk + Done 事件。 */
 async fn handle_non_streaming_response(
     app: tauri::AppHandle,
     response: reqwest::Response,
@@ -183,6 +198,7 @@ async fn handle_non_streaming_response(
     Ok(())
 }
 
+/** 解析单条 SSE `data:` 行，返回 delta 内容（如果有）。 */
 /// Parses a single SSE `data:` line and returns the delta content, if any.
 fn parse_sse_chunk(payload: &str) -> AppResult<Option<String>> {
     let json: serde_json::Value =
@@ -217,6 +233,7 @@ fn parse_sse_chunk(payload: &str) -> AppResult<Option<String>> {
     }
 }
 
+/** 从非流式 OpenAI chat completion 响应中提取内容。 */
 /// Extracts content from a non-streaming OpenAI chat completion response.
 fn extract_content_from_completion(body: &serde_json::Value) -> Option<String> {
     let choices = body.get("choices")?.as_array()?;
@@ -237,6 +254,7 @@ fn extract_content_from_completion(body: &serde_json::Value) -> Option<String> {
     }
 }
 
+/** 向前端发射 AI 流事件。失败时仅记录警告，不中断流程。 */
 fn emit_event(app: &tauri::AppHandle, event: AiStreamEvent) {
     let event_name = "question-scan:ai-stream-event";
     if let Err(error) = app.emit(event_name, &event) {
@@ -244,6 +262,9 @@ fn emit_event(app: &tauri::AppHandle, event: AiStreamEvent) {
     }
 }
 
+/** 将 HTTP 错误状态码和响应体分类为用户友好的错误类型。
+ * 特殊处理：401/403 → API key 错误；400 含 image/vision → 模型不支持图片；429 → 限流。
+ */
 /// Classifies HTTP error status codes and response bodies into user-friendly error types.
 fn classify_http_error(status: reqwest::StatusCode, body_text: &str) -> AppError {
     let lower = body_text.to_lowercase();
@@ -278,6 +299,7 @@ fn classify_http_error(status: reqwest::StatusCode, body_text: &str) -> AppError
     }
 }
 
+/** 将 reqwest 错误映射为应用错误：超时、连接失败、通用请求失败。 */
 fn map_reqwest_error(error: reqwest::Error) -> AppError {
     if error.is_timeout() {
         AppError::AiRequestFailed {
@@ -299,11 +321,11 @@ fn map_reqwest_error(error: reqwest::Error) -> AppError {
     }
 }
 
-// ------------------------------------------------------------------------------
-// Polyfill: reqwest::Response::bytes_stream() returns an opaque type that does
-// not implement Unpin.  We need a small adapter so we can call `.next()` in a
-// loop while keeping the stream alive across await points.
-// ------------------------------------------------------------------------------
+/** ByteStreamAdapter：reqwest 流适配器。
+ *
+ * reqwest::Response::bytes_stream() 返回的类型不实现 Unpin，
+ * 需要此适配器包装后才能在异步循环中调用 .next()。
+ */
 
 struct ByteStreamAdapter {
     inner: Pin<Box<dyn futures_util::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send>>,

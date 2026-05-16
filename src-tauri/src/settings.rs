@@ -1,3 +1,10 @@
+/**
+ * Question Scan 应用设置模块（阶段 8）。
+ *
+ * 职责：管理应用的所有持久化设置，包括提供商配置、快捷键、截图参数、主题等。
+ * 包含：设置结构定义、默认值、加载/保存逻辑、API key 安全存储迁移。
+ * 安全：API key 保存到 Windows Credential Locker，设置文件中存储脱敏版本。
+ */
 use crate::errors::{AppError, AppResult};
 use crate::language::PlatformFormat;
 use crate::provider_key_store;
@@ -119,6 +126,7 @@ pub struct AppSettings {
 }
 
 impl Default for AppSettings {
+    /** 集中定义 MVP 默认值，确保前端回退状态和后端持久化保持一致。 */
     /// Centralizes MVP defaults so frontend fallback state and backend persistence stay aligned.
     fn default() -> Self {
         Self {
@@ -144,47 +152,56 @@ impl Default for AppSettings {
     }
 }
 
+/** 提供商名称默认值：兼容旧设置文件。 */
 /// Keeps older settings usable when provider naming is added after the first shell.
 fn default_provider_name() -> String {
     "OpenAI-compatible".to_string()
 }
 
+/** 请求超时默认值：60 秒，兼顾视觉模型延迟。 */
 /// Keeps image requests from hanging indefinitely while leaving room for vision latency.
 fn default_request_timeout_seconds() -> u32 {
     60
 }
 
+/** 默认启用流式输出，以便展示增量答案。 */
 /// Uses streaming by default so the MVP can show incremental answer output when available.
 fn default_streaming_enabled() -> bool {
     true
 }
 
+/** 界面语言默认值：中文，兼容无语言字段的旧设置文件。 */
 /// Preserves old settings files that predate the explicit interface language.
 fn default_ui_locale() -> UiLocale {
     UiLocale::ZhCn
 }
 
+/** 全局快捷键默认启用，兼容无此字段的旧设置文件。 */
 /// Keeps legacy settings files active when they predate the shortcut toggle.
 fn default_global_shortcut_enabled() -> bool {
     true
 }
 
+/** 截图最大边长默认值：1920，平衡 AI 载荷大小和可读性。 */
 /// Keeps screenshot compression conservative enough for AI payloads without hurting readability.
 fn default_screenshot_max_long_edge() -> u32 {
     1920
 }
 
+/** 截图 JPEG 质量默认值：85，保持图片紧凑同时保留题目细节。 */
 /// Keeps AI image uploads compact while preserving enough detail for problem statements.
 fn default_screenshot_jpeg_quality() -> u8 {
     85
 }
 
+/** 平台格式默认值：ACM 标准输入输出，兼容最广的竞赛平台。 */
 /// Defaults to ACM-style I/O for the broadest compatibility with competitive programming platforms.
 fn default_platform_format() -> PlatformFormat {
     PlatformFormat::Acm
 }
 
 impl AppSettings {
+    /** 清理用户可编辑字段：去除空白，修复非法的速度、超时和截图参数。 */
     /// Trims user-editable string fields and repairs invalid custom speed, timeout, and screenshot values.
     pub fn sanitized(mut self) -> Self {
         self.provider_name = self.provider_name.trim().to_string();
@@ -210,12 +227,14 @@ impl AppSettings {
         self
     }
 
+    /** 脱敏：在序列化到磁盘或暴露给前端前清除 API key 等敏感信息。 */
     /// Removes secrets before the settings are serialized to disk or exposed to the frontend.
     pub fn redacted(mut self) -> Self {
         self.provider_api_key.clear();
         self
     }
 
+    /** 返回截图压缩配置，供截图→AI 流水线使用。 */
     /// Exposes screenshot compression settings for the capture-to-AI pipeline.
     pub fn screenshot_compression_config(&self) -> ScreenshotCompressionConfig {
         ScreenshotCompressionConfig {
@@ -266,6 +285,7 @@ pub struct SettingsStore {
 }
 
 impl SettingsStore {
+    /** 从磁盘加载设置，文件缺失或损坏时回退到默认值并保持应用可启动。 */
     /// Loads settings from disk while keeping startup recoverable when the file is missing or corrupt.
     pub fn load(path: PathBuf) -> Self {
         let (mut settings, mut startup_warning) = match fs::read_to_string(&path) {
@@ -348,6 +368,7 @@ impl SettingsStore {
         store
     }
 
+    /** 返回设置的克隆副本，调用方无需持有读锁。 */
     /// Returns a cloned settings copy so callers never hold the read lock.
     pub fn current(&self) -> AppSettings {
         self.settings
@@ -356,6 +377,7 @@ impl SettingsStore {
             .clone()
     }
 
+    /** 返回启动警告（如果加载时回退到默认值）。 */
     /// Returns the recoverable startup warning, if loading fell back to defaults.
     pub fn startup_warning(&self) -> Option<String> {
         self.startup_warning
@@ -364,6 +386,7 @@ impl SettingsStore {
             .clone()
     }
 
+    /** 清理、写入并发布设置：统一路径避免前后端状态漂移。 */
     /// Sanitizes, writes, and publishes settings in one path to avoid frontend/backend drift.
     pub fn update(&self, settings: AppSettings) -> AppResult<AppSettings> {
         let current_provider_api_key = self.current().provider_api_key;
@@ -381,6 +404,7 @@ impl SettingsStore {
         Ok(settings)
     }
 
+    /** 重置设置为首次启动时的默认值，并清除安全存储中的 API key。 */
     /// Restores persisted settings to the same defaults used on a first launch.
     pub fn reset(&self) -> AppResult<AppSettings> {
         provider_key_store::clear_provider_api_key()?;
@@ -391,6 +415,7 @@ impl SettingsStore {
         Ok(settings)
     }
 
+    /** 从持久化设置和瞬态运行时状态构建完整的前端快照。 */
     /// Builds the complete frontend snapshot from persisted settings and transient runtime state.
     pub fn snapshot(
         &self,
@@ -421,6 +446,7 @@ impl SettingsStore {
         }
     }
 
+    /** 写入设置文件，将所有文件系统错误映射为用户安全的错误。 */
     /// Writes the settings file and maps all filesystem failures to a user-safe error.
     fn write_to_disk(&self, settings: &AppSettings) -> AppResult<()> {
         let settings = settings.clone().redacted();

@@ -1,3 +1,9 @@
+/**
+ * Question Scan 全局快捷键模块
+ *
+ * 职责：注册/注销全局快捷键，处理快捷键触发事件，启动截图→AI 请求流水线。
+ * 快捷键在应用启动时按设置注册，退出时自动注销。
+ */
 use crate::errors::{AppError, AppResult};
 use crate::pipeline;
 use crate::runtime::RuntimeStore;
@@ -10,6 +16,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 #[cfg(test)]
 const GLOBAL_SHORTCUT_PLUGIN_NAME: &str = "global-shortcut";
+/** 全局快捷键触发事件名。前端通过此事件名监听快捷键按下。 */
 pub const GLOBAL_SHORTCUT_TRIGGERED_EVENT: &str = "question-scan:global-shortcut-triggered";
 
 #[derive(Clone, Serialize)]
@@ -19,12 +26,16 @@ struct GlobalShortcutTriggeredPayload {
     trigger_count: u64,
 }
 
-/// Builds the official Tauri global shortcut plugin without registering shortcuts yet.
+/** 构建 Tauri 全局快捷键插件（不注册具体快捷键，仅安装插件）。 */
 pub fn global_shortcut_plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri_plugin_global_shortcut::Builder::new().build()
 }
 
-/// Registers or unregisters the configured shortcut and keeps runtime state in sync.
+/**
+ * 同步全局快捷键状态。
+ * 根据设置决定是否注册、注销或更新快捷键，同时同步运行时状态和托盘显示。
+ * 此函数在应用启动、设置保存、快捷键切换时调用。
+ */
 pub fn sync_global_shortcut(
     app: &AppHandle,
     settings: &AppSettings,
@@ -94,13 +105,17 @@ pub fn sync_global_shortcut(
     Ok(())
 }
 
-/// Releases all shortcuts owned by this process. Safe to call repeatedly during shutdown.
+/**
+ * 注销本进程注册的所有全局快捷键。
+ * 应用退出时调用，可重复调用不会报错。
+ */
 pub fn unregister_global_shortcuts(app: &AppHandle) {
     if let Err(error) = app.global_shortcut().unregister_all() {
         tracing::warn!(%error, "Could not unregister global shortcuts");
     }
 }
 
+/** 解析快捷键字符串为 Tauri Shortcut 对象。空字符串会被拒绝。 */
 fn parse_shortcut(shortcut: &str) -> AppResult<Shortcut> {
     if shortcut.is_empty() {
         return Err(shortcut_error(
@@ -138,9 +153,13 @@ fn is_already_registered_reason(reason: &str) -> bool {
     reason.starts_with("HotKey already registered")
 }
 
+/**
+ * 快捷键按下时的处理函数。
+ * 检查并发状态 → 记录触发 → 显示窗口 → 发射事件 → 启动截图→AI 流水线。
+ */
 fn handle_shortcut_pressed(app: &AppHandle, shortcut: String) {
     if let Some(runtime) = app.try_state::<RuntimeStore>() {
-        // Prevent concurrent pipeline runs while already processing.
+        // 防止在已有流程运行时重复触发（空闲/完成/失败状态除外）。
         let snapshot = runtime.snapshot();
         if snapshot.tray_status != TrayStatus::Idle
             && snapshot.tray_status != TrayStatus::Failed

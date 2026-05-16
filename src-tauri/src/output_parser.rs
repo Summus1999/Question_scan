@@ -1,9 +1,13 @@
+/**
+ * Question Scan AI 输出解析模块（阶段 6）。
+ *
+ * 职责：从 AI 返回的结构化文本中提取主代码块。
+ * 策略1：查找 "完整代码" 章节标题，提取到下一章节之间的内容。
+ * 策略2：回退到提取第一个 fenced code block（```lang ... ```）。
+ */
+
+/** 从 AI 解法响应中提取主代码块。 */
 /// Extracts the primary code block from an AI solution response.
-///
-/// The parser looks for the "完整代码" section header and returns everything
-/// between that header and the next section header (or end of text).
-/// If no section header is found, it falls back to extracting the first
-/// fenced code block (```lang ... ```).
 pub fn extract_main_code_block(text: &str) -> Option<String> {
     // Strategy 1: look for the structured section header.
     if let Some(block) = extract_after_section_header(text, "完整代码") {
@@ -14,6 +18,7 @@ pub fn extract_main_code_block(text: &str) -> Option<String> {
     extract_first_fenced_code_block(text)
 }
 
+/** 查找指定章节标题后的内容，直到下一个章节标题或文本结束。 */
 fn extract_after_section_header(text: &str, header: &str) -> Option<String> {
     let header_pattern = format!("{header}:");
     let start = text.find(&header_pattern)?;
@@ -48,6 +53,7 @@ fn extract_after_section_header(text: &str, header: &str) -> Option<String> {
     }
 }
 
+/** 提取第一个 fenced code block（```lang ... ```）的内容。 */
 fn extract_first_fenced_code_block(text: &str) -> Option<String> {
     let start = text.find("```")?;
     let after_open = &text[start + 3..];

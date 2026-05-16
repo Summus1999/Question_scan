@@ -1,3 +1,10 @@
+/**
+ * Question Scan AI 提供商请求构造模块（阶段 5）。
+ *
+ * 职责：将用户设置转换为可发送的 OpenAI-compatible 多模态请求。
+ * 包含：提供商配置验证、请求体构造、图片 Base64 编码、端点组装。
+ * 输出：PreparedOpenAiMultimodalRequest，可直接交给 streaming.rs 发送。
+ */
 use crate::errors::{AppError, AppResult};
 use crate::settings::AppSettings;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
@@ -10,6 +17,7 @@ const HTTP_SCHEMES: [&str; 2] = ["http", "https"];
 const OPENAI_JSON_CONTENT_TYPE: &str = "application/json";
 const OPENAI_BEARER_PREFIX: &str = "Bearer ";
 
+/** 从应用设置派生的、可直接用于请求的 AI 提供商配置。 */
 /// A request-ready AI provider configuration derived from saved app settings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProviderRequestConfig {
@@ -21,6 +29,7 @@ pub struct ProviderRequestConfig {
     pub streaming_enabled: bool,
 }
 
+/** 图片载荷，将被内联到 OpenAI-compatible 多模态请求中。 */
 /// The image payload that will be inlined into an OpenAI-compatible multimodal request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpenAiImageInput {
@@ -29,6 +38,7 @@ pub struct OpenAiImageInput {
 }
 
 impl OpenAiImageInput {
+    /** 从 MIME 类型和字节缓冲区创建请求图片载荷。 */
     /// Creates a request image payload from any owned MIME type and byte buffer.
     pub fn new(mime_type: impl Into<String>, bytes: impl Into<Vec<u8>>) -> Self {
         Self {
@@ -38,6 +48,7 @@ impl OpenAiImageInput {
     }
 }
 
+/** 完全准备好的 OpenAI-compatible 多模态请求，可直接交给 HTTP 客户端发送。 */
 /// The fully prepared OpenAI-compatible multimodal request ready for an HTTP client.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreparedOpenAiMultimodalRequest {
@@ -48,6 +59,7 @@ pub struct PreparedOpenAiMultimodalRequest {
     pub body: OpenAiChatCompletionRequest,
 }
 
+/** OpenAI chat-completions 请求体，同时携带文本指令和图片。 */
 /// The OpenAI chat-completions payload that carries both the text instruction and the image.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct OpenAiChatCompletionRequest {
@@ -56,6 +68,7 @@ pub struct OpenAiChatCompletionRequest {
     pub stream: bool,
 }
 
+/** OpenAI-compatible 多模态请求体中的单条聊天消息。 */
 /// A single chat message inside the OpenAI-compatible multimodal request body.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct OpenAiChatMessage {
@@ -63,6 +76,7 @@ pub struct OpenAiChatMessage {
     pub content: Vec<OpenAiChatContentPart>,
 }
 
+/** OpenAI-compatible 多模态请求体中的单个文本或图片部分。 */
 /// A single text or image part inside the OpenAI-compatible multimodal request body.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -71,12 +85,16 @@ pub enum OpenAiChatContentPart {
     ImageUrl { image_url: OpenAiImageUrl },
 }
 
+/** OpenAI chat-completions 多模态载荷中的图片 URL 包装器（实际为 data URL）。 */
 /// The image URL wrapper used by OpenAI chat-completions multimodal payloads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct OpenAiImageUrl {
     pub url: String,
 }
 
+/** 在请求发送前验证提供商配置是否完整有效。
+ * 检查：base URL、API key、model、timeout。
+ */
 /// Validates the configured provider settings before the request stage starts.
 pub fn validate_provider_request_config(
     settings: &AppSettings,
@@ -96,6 +114,7 @@ pub fn validate_provider_request_config(
     })
 }
 
+/** 从验证后的提供商配置构建 OpenAI-compatible 多模态请求。 */
 /// Builds an OpenAI-compatible multimodal request from the validated provider config.
 pub fn build_openai_multimodal_request(
     config: &ProviderRequestConfig,
@@ -127,6 +146,7 @@ pub fn build_openai_multimodal_request(
     })
 }
 
+/** 验证提供商 base URL：必须非空、可解析、且使用 http/https 协议。 */
 fn validate_provider_base_url(raw_base_url: &str) -> AppResult<Url> {
     let trimmed = raw_base_url.trim();
     if trimmed.is_empty() {
@@ -151,6 +171,7 @@ fn validate_provider_base_url(raw_base_url: &str) -> AppResult<Url> {
     Ok(url)
 }
 
+/** 验证必填字段：去除空白后必须非空。 */
 fn required_trimmed_field(value: &str, field_name: &str) -> AppResult<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -162,6 +183,7 @@ fn required_trimmed_field(value: &str, field_name: &str) -> AppResult<String> {
     Ok(trimmed.to_string())
 }
 
+/** 构建 OpenAI chat-completions 端点 URL：在 base URL 后追加 /chat/completions。 */
 fn build_openai_chat_completions_endpoint(base_url: &Url) -> AppResult<String> {
     let mut endpoint = base_url.clone();
     endpoint
@@ -177,6 +199,7 @@ fn build_openai_chat_completions_endpoint(base_url: &Url) -> AppResult<String> {
     Ok(endpoint.to_string())
 }
 
+/** 将图片字节编码为 Base64 data URL，用于内联到多模态请求中。 */
 fn build_openai_image_data_url(image: &OpenAiImageInput) -> AppResult<String> {
     let mime_type = required_trimmed_field(&image.mime_type, "image MIME type")?;
     if !mime_type.starts_with("image/") {
@@ -197,6 +220,7 @@ fn build_openai_image_data_url(image: &OpenAiImageInput) -> AppResult<String> {
     ))
 }
 
+/** 验证请求超时时间：必须大于 0 秒。 */
 fn validate_request_timeout(seconds: u32) -> AppResult<Duration> {
     if seconds == 0 {
         return Err(provider_configuration_error(
@@ -207,6 +231,7 @@ fn validate_request_timeout(seconds: u32) -> AppResult<Duration> {
     Ok(Duration::from_secs(u64::from(seconds)))
 }
 
+/** 构造提供商配置错误。 */
 fn provider_configuration_error(reason: impl Into<String>) -> AppError {
     AppError::ProviderConfigurationInvalid {
         reason: reason.into(),

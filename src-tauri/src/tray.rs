@@ -1,3 +1,9 @@
+/**
+ * Question Scan 系统托盘模块
+ *
+ * 职责：创建托盘图标和菜单，处理托盘点击事件，同步托盘状态与运行时状态。
+ * 托盘是应用后台运行的核心入口，用户通过托盘控制窗口显隐、快捷键和退出。
+ */
 use crate::commands::{set_window_visible, toggle_window};
 use crate::errors::{AppError, AppResult};
 use crate::runtime::RuntimeStore;
@@ -11,9 +17,13 @@ use tauri::{
     AppHandle, Emitter, Manager, Wry,
 };
 
+/** 托盘图标二进制数据，打包时嵌入可执行文件。 */
 const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon.png");
+/** 托盘图标 ID，与 tauri.conf.json 中的 trayIcon.id 对应。 */
 const TRAY_ID: &str = "main";
+/** "打开设置"事件名。托盘菜单选择设置时发射给前端。 */
 pub const OPEN_SETTINGS_EVENT: &str = "question-scan:open-settings";
+/** 运行时状态变更事件名。托盘操作（如切换快捷键）后通知前端刷新。 */
 pub const RUNTIME_STATE_CHANGED_EVENT: &str = "question-scan:runtime-state-changed";
 
 #[derive(Clone, Serialize)]
@@ -27,7 +37,10 @@ struct TrayController {
     shortcut_item: MenuItem<Wry>,
 }
 
-/// Creates the tray icon, tray menu, and window visibility handlers for background mode.
+/**
+ * 构建托盘图标、菜单和事件处理器。
+ * 应用启动时调用一次，创建完整的托盘交互体系。
+ */
 pub fn build_tray(app: &AppHandle) -> AppResult<()> {
     let status_item = MenuItem::with_id(app, "tray-status", "Status: Idle", false, None::<&str>)
         .map_err(|error| {
@@ -152,7 +165,11 @@ pub fn build_tray(app: &AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-/// Updates tray tooltip and menu labels from the latest runtime and settings state.
+/**
+ * 同步托盘显示状态。
+ * 根据当前运行时状态和设置更新 tooltip 和菜单项标签。
+ * 截图/识别/生成等流程中应调用此函数反馈进度。
+ */
 pub fn sync_tray(app: &AppHandle) -> AppResult<()> {
     let runtime = app
         .try_state::<RuntimeStore>()
@@ -197,7 +214,10 @@ pub fn sync_tray(app: &AppHandle) -> AppResult<()> {
     Ok(())
 }
 
-/// Changes the tray phase through the same runtime state shown in the frontend snapshot.
+/**
+ * 设置托盘状态。
+ * 通过运行时状态机统一更新，保证前端和托盘显示一致。
+ */
 pub fn set_tray_status(app: &AppHandle, status: TrayStatus) -> AppResult<()> {
     if let Some(runtime) = app.try_state::<RuntimeStore>() {
         runtime.set_tray_status(status);

@@ -1,3 +1,9 @@
+/**
+ * 手动框选覆盖层组件（阶段 4 兜底 UI）。
+ *
+ * 职责：当自动识别置信度不足时，为用户提供手动拖拽框选题目区域的能力。
+ * 交互：Pointer 事件拖拽绘制矩形 → 确认/取消/重试识别。
+ */
 import { Check, Crop, RotateCcw, X } from 'lucide-react';
 import {
   type PointerEvent,
@@ -32,10 +38,12 @@ type Point = {
   y: number;
 };
 
+/** 将坐标值限制在视口范围内，防止拖拽超出窗口边界。 */
 function clampToViewport(value: number, max: number) {
   return Math.min(Math.max(value, 0), max);
 }
 
+/** 从 PointerEvent 读取鼠标/触摸坐标，并限制在视口内。 */
 function readPoint(event: PointerEvent<HTMLDivElement>): Point {
   return {
     x: clampToViewport(Math.round(event.clientX), window.innerWidth),
@@ -43,6 +51,7 @@ function readPoint(event: PointerEvent<HTMLDivElement>): Point {
   };
 }
 
+/** 根据起点和终点构建选择矩形。如果宽或高为 0，返回 null。 */
 function buildSelection(start: Point, end: Point): CropSelectionRect | null {
   const x = Math.min(start.x, end.x);
   const y = Math.min(start.y, end.y);
@@ -61,6 +70,11 @@ function buildSelection(start: Point, end: Point): CropSelectionRect | null {
   };
 }
 
+/** 手动框选覆盖层主组件。
+ *
+ * 当 active 为 true 时，覆盖整个视口，用户可通过拖拽绘制选择矩形。
+ * 支持：拖拽绘制、取消选择、重试自动识别、确认选择。
+ */
 // Owns the manual fallback selection layer that sits above the shell while the user drags.
 export function CropOverlay({
   active,

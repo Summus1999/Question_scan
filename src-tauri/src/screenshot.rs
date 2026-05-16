@@ -1,7 +1,10 @@
-//! Screenshot backend selection for stage 3.
-//!
-//! This wrapper keeps the Windows-capable crate in one place so later capture
-//! and temporary-file work can build on a stable entry point.
+/**
+ * Question Scan 截图模块（阶段 3）。
+ *
+ * 职责：封装 Windows 可用的截图后端（screenshots crate），提供统一的截图入口。
+ * 包含：屏幕捕获、多显示器坐标统一、临时文件管理、AI 请求前的图片压缩。
+ * 这是后续裁剪和 AI 请求链路的稳定基础。
+ */
 
 use std::{
     fs,
@@ -16,6 +19,7 @@ pub(crate) const SCREENSHOT_BACKEND: &str = "screenshots";
 
 pub(crate) use screenshots::{display_info::DisplayInfo, image, Screen};
 
+/** 截图范围策略：仅当前显示器，或所有显示器。 */
 /// Chooses whether the capture flow should use the current display or every display.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScreenSelection {
@@ -23,6 +27,7 @@ pub enum ScreenSelection {
     AllDisplays,
 }
 
+/** 虚拟桌面坐标空间中的矩形区域。用于统一多显示器的坐标系。 */
 /// A capture result mapped into the shared virtual desktop coordinate space.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DesktopRect {
@@ -32,6 +37,7 @@ pub struct DesktopRect {
     pub height: u32,
 }
 
+/** 统一虚拟桌面布局的原点和尺寸。 */
 /// The origin and extent of the unified virtual desktop layout.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DesktopLayout {
@@ -42,6 +48,7 @@ pub struct DesktopLayout {
 }
 
 impl DesktopLayout {
+    /** 从一组显示器构建统一的虚拟桌面布局。计算所有屏幕的最小包围矩形。 */
     /// Builds the shared desktop layout from a set of screens.
     pub fn from_screens(screens: &[Screen]) -> Option<Self> {
         let first = screens.first()?;
@@ -66,6 +73,7 @@ impl DesktopLayout {
         })
     }
 
+    /** 将虚拟桌面坐标点转换为以布局原点为基准的归一化坐标。 */
     /// Converts a virtual desktop point into the normalized layout space.
     pub fn normalize_point(&self, point: (i32, i32)) -> (i32, i32) {
         (
@@ -74,6 +82,7 @@ impl DesktopLayout {
         )
     }
 
+    /** 将单个显示器的全局坐标转换为统一桌面布局空间中的矩形。 */
     /// Converts a screen's global coordinates into the shared desktop layout space.
     pub fn normalize_screen_rect(&self, display_info: DisplayInfo) -> DesktopRect {
         let (x, y) = self.normalize_point((display_info.x, display_info.y));
@@ -87,6 +96,7 @@ impl DesktopLayout {
     }
 }
 
+/** 截图压缩配置：控制发送给 AI 前的重新编码参数。 */
 /// Controls how screenshots are re-encoded before being sent to the AI service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScreenshotCompressionConfig {
@@ -95,6 +105,7 @@ pub struct ScreenshotCompressionConfig {
 }
 
 impl ScreenshotCompressionConfig {
+    /** 修复非法的压缩参数，确保下游编码行为可预测。 */
     /// Repairs invalid compression settings so downstream encoding stays predictable.
     pub fn sanitized(self) -> Self {
         Self {
@@ -104,6 +115,7 @@ impl ScreenshotCompressionConfig {
     }
 }
 
+/** 压缩后的图片载荷，可直接用于 AI 请求上传。 */
 /// A compressed image payload ready for AI upload.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompressedImage {
@@ -112,6 +124,7 @@ pub struct CompressedImage {
     pub bytes: Vec<u8>,
 }
 
+/** 裁剪矩形，已归一化为截图本地坐标。 */
 /// A crop rectangle normalized into local capture coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CropRect {
@@ -121,6 +134,7 @@ pub struct CropRect {
     pub height: u32,
 }
 
+/** 截图元数据，可序列化，用于前端状态和 AI 请求交接。 */
 /// A serializable screenshot summary for frontend state and AI request handoff.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -132,6 +146,7 @@ pub struct ScreenshotMetadata {
     pub captured_at_unix_ms: u64,
 }
 
+/** 单次屏幕捕获结果，包含显示器元数据和内存中的图片数据。 */
 /// Captures a screen together with its display metadata.
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -144,6 +159,7 @@ pub struct CapturedScreen {
 }
 
 impl CapturedScreen {
+    /** 将内存中的捕获结果转换为供其他层使用的小型元数据对象。 */
     /// Converts the in-memory capture result into the small object exposed to other layers.
     pub fn metadata(&self) -> ScreenshotMetadata {
         ScreenshotMetadata {
@@ -159,6 +175,9 @@ impl CapturedScreen {
 #[allow(dead_code)]
 pub type ScreenshotResult<T> = Result<T, String>;
 
+/** 捕获指定范围的显示器，返回原始图像供后续裁剪和保存。
+ * 这是截图流程的主入口函数。
+ */
 /// Captures the configured set of displays and returns raw images for later cropping and saving.
 #[allow(dead_code)]
 pub fn capture_screens(
@@ -181,6 +200,7 @@ pub fn capture_screens(
         .collect()
 }
 
+/** 捕获指定范围的显示器，仅返回可序列化的元数据（不含内存图像）。 */
 /// Captures the configured displays and returns only serializable screenshot metadata.
 #[allow(dead_code)]
 pub fn capture_screens_metadata(
@@ -193,6 +213,9 @@ pub fn capture_screens_metadata(
         .collect())
 }
 
+/** AI 请求完成后，清理本次捕获生成的临时文件。
+ * 注意：文件不存在时会被忽略，不会报错。
+ */
 /// Deletes the temporary files for a capture batch after the AI request has finished.
 pub(crate) fn cleanup_captured_screens(
     captured_screens: &[CapturedScreen],
@@ -208,6 +231,9 @@ pub(crate) fn cleanup_captured_screens(
     Ok(())
 }
 
+/** 将虚拟桌面裁剪矩形转换为截图本地坐标，并进行边界检查。
+ * 如果裁剪区域超出捕获范围，返回错误。
+ */
 /// Converts a virtual-desktop crop rectangle into capture-local coordinates after bounds checks.
 #[allow(dead_code)]
 pub(crate) fn normalize_crop_rect(
@@ -244,6 +270,7 @@ pub(crate) fn normalize_crop_rect(
     })
 }
 
+/** 根据选择策略筛选要捕获的显示器。 */
 /// Picks the screens that match the requested selection policy.
 pub(crate) fn select_screens(
     screens: &[Screen],
@@ -259,6 +286,7 @@ pub(crate) fn select_screens(
 }
 
 #[allow(dead_code)]
+/** 捕获单个显示器，保存为临时 PNG 文件，返回捕获结果。 */
 fn capture_screen(
     screen: Screen,
     desktop_layout: &DesktopLayout,
@@ -279,6 +307,7 @@ fn capture_screen(
     })
 }
 
+/** 根据锚点坐标选择当前所在的显示器。如果锚点不在任何屏幕内，回退到第一个屏幕。 */
 fn select_current_screen(screens: &[Screen], anchor: Option<(i32, i32)>) -> Option<Screen> {
     let anchor = anchor.unwrap_or((0, 0));
 
@@ -289,6 +318,7 @@ fn select_current_screen(screens: &[Screen], anchor: Option<(i32, i32)>) -> Opti
         .or_else(|| screens.first().copied())
 }
 
+/** 判断给定坐标是否位于指定屏幕范围内。 */
 fn screen_contains_point(screen: &Screen, (x, y): (i32, i32)) -> bool {
     let display_info = screen.display_info;
     let right = i64::from(display_info.x) + i64::from(display_info.width);
@@ -299,20 +329,24 @@ fn screen_contains_point(screen: &Screen, (x, y): (i32, i32)) -> bool {
     x >= i64::from(display_info.x) && x < right && y >= i64::from(display_info.y) && y < bottom
 }
 
+/** 坐标平移：将绝对坐标减去原点，得到相对坐标。 */
 fn translate_coordinate(value: i32, origin: i32) -> i32 {
     (i64::from(value) - i64::from(origin)).clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
 }
 
+/** 将 SystemTime 转换为 Unix 时间戳（毫秒）。 */
 fn system_time_to_unix_ms(time: SystemTime) -> u64 {
     time.duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
         .unwrap_or_default()
 }
 
+/** 获取截图临时文件根目录路径。默认在系统临时目录下创建 `question-scan` 子目录。 */
 pub(crate) fn screenshot_temp_root(base_dir: impl AsRef<Path>) -> PathBuf {
     base_dir.as_ref().join("question-scan")
 }
 
+/** 生成单次捕获的临时文件路径，包含时间戳、显示器 ID 和索引。 */
 pub(crate) fn temp_capture_path(
     capture_root: impl AsRef<Path>,
     display_id: u32,
@@ -329,12 +363,14 @@ pub(crate) fn temp_capture_path(
     ))
 }
 
+/** 确保截图临时根目录存在，如果不存在则创建。 */
 pub(crate) fn ensure_screenshot_temp_root(base_dir: impl AsRef<Path>) -> ScreenshotResult<PathBuf> {
     let capture_root = screenshot_temp_root(base_dir);
     fs::create_dir_all(&capture_root).map_err(|error| error.to_string())?;
     Ok(capture_root)
 }
 
+/** 将内存中的 RGBA 图像保存为 PNG 临时文件。 */
 pub(crate) fn save_image_to_temp_file(
     image: &image::RgbaImage,
     temp_path: impl AsRef<Path>,
@@ -346,6 +382,9 @@ pub(crate) fn save_image_to_temp_file(
     fs::write(temp_path.as_ref(), buffer.into_inner()).map_err(|error| error.to_string())
 }
 
+/** 将截图重新编码为紧凑的 JPEG 格式，用于 AI 请求上传。
+ * 流程：先根据 max_long_edge 等比例缩放，再用指定质量编码为 JPEG。
+ */
 /// Re-encodes a screenshot into a compact JPEG payload for AI requests.
 #[allow(dead_code)]
 pub(crate) fn compress_image_for_ai(
@@ -372,6 +411,7 @@ pub(crate) fn compress_image_for_ai(
     })
 }
 
+/** 根据 max_long_edge 限制等比例缩放图像。如果图像已经小于限制则不做处理。 */
 fn resize_for_ai(image: &image::RgbaImage, max_long_edge: u32) -> image::DynamicImage {
     let source = image::DynamicImage::ImageRgba8(image.clone());
     let width = source.width();

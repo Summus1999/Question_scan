@@ -1,3 +1,9 @@
+/**
+ * Question Scan 前后端 API 桥接模块
+ *
+ * 职责：封装所有 Tauri 命令调用和事件监听，提供类型安全的接口。
+ * 前端代码不应直接调用 `invoke` 或 `listen`，而应通过此模块的函数。
+ */
 import { invoke } from '@tauri-apps/api/core';
 import { type Event, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
@@ -8,6 +14,7 @@ import type {
   TrayStatus,
 } from './types';
 
+/** 后端 Tauri 命令名称常量。集中管理避免硬编码字符串散落。 */
 export const BACKEND_COMMANDS = {
   loadAppState: 'load_app_state',
   saveSettings: 'save_settings',
@@ -24,6 +31,7 @@ export const BACKEND_COMMANDS = {
   clearHistory: 'clear_history',
 } as const;
 
+/** 前端监听的后端事件名称常量。 */
 export const FRONTEND_EVENTS = {
   globalShortcutTriggered: 'question-scan:global-shortcut-triggered',
   openSettings: 'question-scan:open-settings',
@@ -107,7 +115,11 @@ export type BackendCommandPayload<TCommand extends BackendCommandName> =
 export type BackendCommandResponse<TCommand extends BackendCommandName> =
   BackendCommandSpec[TCommand]['response'];
 
-// Centralizes command names, payloads, and response types so wrapper drift is easy to catch.
+/**
+ * 统一的 Tauri 命令调用包装器。
+ * 通过泛型约束保证命令名、请求体、响应体的类型安全。
+ * 如果命令参数类型为 undefined，则不需要传 payload。
+ */
 function invokeBackend<TCommand extends BackendCommandName>(
   command: TCommand,
   ...payload: BackendCommandPayload<TCommand> extends undefined
@@ -121,42 +133,45 @@ function invokeBackend<TCommand extends BackendCommandName>(
   return invoke<BackendCommandResponse<TCommand>>(command, payload[0]);
 }
 
-// Loads the canonical startup snapshot from Rust; use this when UI state looks stale.
+/** 从 Rust 后端加载应用启动状态快照。UI 状态异常时可调用此函数刷新。 */
 export function loadAppState(): Promise<AppState> {
   return invokeBackend(BACKEND_COMMANDS.loadAppState);
 }
 
-// Sends the full settings object to Rust so validation and persistence stay backend-owned.
+/** 将完整设置对象发送到 Rust 后端。校验和持久化逻辑由后端负责。 */
 export function saveSettings(settings: AppSettings): Promise<AppState> {
   return invokeBackend(BACKEND_COMMANDS.saveSettings, { settings });
 }
 
-// Restores backend defaults and returns the same snapshot shape as a normal save.
+/** 恢复后端默认设置。返回的状态快照结构与正常保存一致。 */
 export function resetSettings(): Promise<AppState> {
   return invokeBackend(BACKEND_COMMANDS.resetSettings);
 }
 
-// Shows the main Tauri window and reports the refreshed backend snapshot.
+/** 显示主窗口，并返回刷新后的后端状态快照。 */
 export function showMainWindow(): Promise<AppState> {
   return invokeBackend(BACKEND_COMMANDS.showMainWindow);
 }
 
-// Hides the main Tauri window without exiting the tray process.
+/** 隐藏主窗口（不退出托盘进程）。 */
 export function hideMainWindow(): Promise<AppState> {
   return invokeBackend(BACKEND_COMMANDS.hideMainWindow);
 }
 
-// Toggles visibility through Rust so header controls and tray actions share behavior.
+/** 切换主窗口显隐状态。标题栏按钮和托盘动作共用此行为。 */
 export function toggleMainWindow(): Promise<AppState> {
   return invokeBackend(BACKEND_COMMANDS.toggleMainWindow);
 }
 
-// Updates the tray phase from frontend-owned flows that are added after stage 2.
+/** 更新托盘状态。前端流程（如截图后）可调用此函数同步托盘显示。 */
 export function setTrayStatus(status: TrayStatus): Promise<AppState> {
   return invokeBackend(BACKEND_COMMANDS.setTrayStatus, { status });
 }
 
-// Refreshes frontend state when Rust records a global shortcut trigger.
+/**
+ * 监听全局快捷键触发事件。
+ * 当用户在后台按下快捷键时，Rust 会发射此事件，前端应刷新状态并显示窗口。
+ */
 export function listenGlobalShortcutTriggered(
   handler: (event: Event<GlobalShortcutTriggeredPayload>) => void,
 ): Promise<UnlistenFn> {
@@ -166,7 +181,10 @@ export function listenGlobalShortcutTriggered(
   );
 }
 
-// Lets the tray jump to the settings surface without exposing tray internals to React.
+/**
+ * 监听"打开设置"事件。
+ * 用户从托盘菜单选择"打开设置"时触发，前端应滚动到设置区域。
+ */
 export function listenOpenSettings(
   handler: (event: Event<RuntimeStateChangedPayload>) => void,
 ): Promise<UnlistenFn> {
@@ -176,7 +194,10 @@ export function listenOpenSettings(
   );
 }
 
-// Covers tray-only mutations such as enabling or disabling the shortcut.
+/**
+ * 监听运行时状态变更事件。
+ * 托盘操作（如启用/禁用快捷键）会触发此事件，前端应同步状态。
+ */
 export function listenRuntimeStateChanged(
   handler: (event: Event<RuntimeStateChangedPayload>) => void,
 ): Promise<UnlistenFn> {
@@ -186,14 +207,20 @@ export function listenRuntimeStateChanged(
   );
 }
 
-// Listens for AI streaming chunks, completion, or errors from the Rust backend.
+/**
+ * 监听 AI 流式输出事件。
+ * 后端通过 SSE 接收模型响应，解析后逐段发射 chunk/done/error 事件给前端。
+ */
 export function listenAiStreamEvent(
   handler: (event: Event<AiStreamEventPayload>) => void,
 ): Promise<UnlistenFn> {
   return listen<AiStreamEventPayload>(FRONTEND_EVENTS.aiStreamEvent, handler);
 }
 
-// Starts an AI multimodal request. Results arrive via listenAiStreamEvent.
+/**
+ * 发起 AI 多模态请求。
+ * 请求启动后，结果通过 listenAiStreamEvent 事件流返回，而非此 Promise。
+ */
 export function sendAiRequest(
   instruction: string,
   imageBytes: Uint8Array,
@@ -206,30 +233,32 @@ export function sendAiRequest(
   });
 }
 
-// Regenerates the AI solution with a different language using the same screenshot data.
-// Results arrive via listenAiStreamEvent.
+/**
+ * 使用相同截图数据，切换语言重新生成答案。
+ * 结果通过 listenAiStreamEvent 事件流返回。
+ */
 export function regenerateWithLanguage(language: string): Promise<void> {
   return invokeBackend(BACKEND_COMMANDS.regenerateWithLanguage, {
     language,
   });
 }
 
-// Deletes all temporary images from the system temp directory.
+/** 清空系统临时目录中的遗留截图文件。 */
 export function clearCache(): Promise<void> {
   return invokeBackend(BACKEND_COMMANDS.clearCache);
 }
 
-// Returns the list of saved history entries.
+/** 获取已保存的历史记录列表。 */
 export function listHistory(): Promise<HistoryEntry[]> {
   return invokeBackend(BACKEND_COMMANDS.listHistory);
 }
 
-// Deletes a single history entry by its id.
+/** 根据 ID 删除单条历史记录。 */
 export function deleteHistoryEntry(id: string): Promise<boolean> {
   return invokeBackend(BACKEND_COMMANDS.deleteHistoryEntry, { id });
 }
 
-// Clears all history entries.
+/** 清空全部历史记录。 */
 export function clearHistory(): Promise<void> {
   return invokeBackend(BACKEND_COMMANDS.clearHistory);
 }

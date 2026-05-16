@@ -1,6 +1,14 @@
+/**
+ * Question Scan 会话上下文模块（阶段 6）。
+ *
+ * 职责：保存最近一次截图→AI 流水线的数据，支持语言切换和重新生成时复用。
+ * 使用 RwLock 保护数据，支持多线程安全访问。
+ * 关键用途：用户切换语言后无需重新截图，直接复用已保存的图片和识别文本。
+ */
 use crate::language::{LanguageId, PlatformFormat};
 use std::sync::RwLock;
 
+/** 保存最近一次成功流水线的数据，支持语言切换和重新生成时复用图片与识别文本，无需重新截图。 */
 /// Holds the data from the most recent successful screenshot-to-AI pipeline so that
 /// language switching and regeneration can reuse the same cropped image and recognized
 /// text without re-capturing the screen.
@@ -21,6 +29,7 @@ pub struct SessionContext {
 }
 
 impl SessionContext {
+    /** 保存截图和识别流水线的数据。 */
     /// Stores the data from a completed screenshot-and-recognition pipeline.
     pub fn save_request_data(
         &self,
@@ -42,11 +51,13 @@ impl SessionContext {
         *self.last_language.write().expect("language lock poisoned") = Some(language);
     }
 
+    /** 返回上次请求保存的图片字节（如果有）。 */
     /// Returns the image bytes if a previous request was saved.
     pub fn image_bytes(&self) -> Option<Vec<u8>> {
         self.image_bytes.read().expect("image bytes lock poisoned").clone()
     }
 
+    /** 返回上次请求保存的图片 MIME 类型（如果有）。 */
     /// Returns the image MIME type if a previous request was saved.
     pub fn image_mime_type(&self) -> Option<String> {
         self.image_mime_type
@@ -55,6 +66,7 @@ impl SessionContext {
             .clone()
     }
 
+    /** 返回上次请求保存的识别标题（如果有）。 */
     /// Returns the recognized title if a previous request was saved.
     pub fn recognized_title(&self) -> Option<String> {
         self.recognized_title
@@ -63,6 +75,7 @@ impl SessionContext {
             .clone()
     }
 
+    /** 返回上次请求保存的识别文本（如果有）。 */
     /// Returns the recognized text if a previous request was saved.
     pub fn recognized_text(&self) -> Option<String> {
         self.recognized_text
@@ -71,16 +84,19 @@ impl SessionContext {
             .clone()
     }
 
+    /** 返回上次请求保存的平台格式（如果有）。 */
     /// Returns the platform format if a previous request was saved.
     pub fn platform_format(&self) -> Option<PlatformFormat> {
         *self.platform_format.read().expect("platform lock poisoned")
     }
 
+    /** 返回上次请求保存的语言（如果有）。 */
     /// Returns the last language if a previous request was saved.
     pub fn last_language(&self) -> Option<LanguageId> {
         *self.last_language.read().expect("language lock poisoned")
     }
 
+    /** 清空所有保存的会话数据。 */
     /// Clears all saved session data.
     pub fn clear(&self) {
         *self.image_bytes.write().expect("image bytes lock poisoned") = None;
@@ -91,6 +107,7 @@ impl SessionContext {
         *self.last_language.write().expect("language lock poisoned") = None;
     }
 
+    /** 判断是否拥有足够数据以使用新语言重新生成（需要图片字节和 MIME 类型）。 */
     /// Returns true if enough data is present to regenerate with a new language.
     pub fn can_regenerate(&self) -> bool {
         self.image_bytes().is_some() && self.image_mime_type().is_some()

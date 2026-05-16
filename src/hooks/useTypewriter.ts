@@ -1,6 +1,14 @@
+/**
+ * 打字机效果 Hook（阶段 7）。
+ *
+ * 职责：模拟打字机逐字显示效果，用于 AI 流式输出的视觉呈现。
+ * 支持：三种预设速度（快/中/慢）、自定义速度、追加文本、重置、立即显示全部。
+ * 原理：使用 setInterval 定期从缓冲区向显示区追加字符。
+ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OutputSpeed } from '../lib/types';
 
+/** 速度配置：每次 tick 显示的字符数。 */
 // ------------------------------------------------------------------------------
 // Speed configuration: characters per reveal tick
 // ------------------------------------------------------------------------------
@@ -13,6 +21,7 @@ const SPEED_CONFIG: Record<Exclude<OutputSpeed, 'custom'>, number> = {
 
 const TICK_MS = 50; // Base tick interval
 
+/** 根据速度设置计算每次 tick 显示的字符数。 */
 function getCharsPerTick(
   speed: OutputSpeed,
   customCharsPerSecond: number,
@@ -24,6 +33,7 @@ function getCharsPerTick(
   return SPEED_CONFIG[speed];
 }
 
+/** useTypewriter Hook 选项和返回值接口。 */
 // ------------------------------------------------------------------------------
 // useTypewriter hook
 // ------------------------------------------------------------------------------
@@ -34,17 +44,17 @@ export interface UseTypewriterOptions {
 }
 
 export interface UseTypewriterReturn {
-  /** The full accumulated text (always complete). */
+  /** 完整累积文本（始终完整）。 */
   fullText: string;
-  /** The text currently displayed (may be partial during typing). */
+  /** 当前显示的文本（打字过程中可能不完整）。 */
   displayedText: string;
-  /** Whether the typewriter is actively revealing text. */
+  /** 打字机是否正在活跃显示文本。 */
   isTyping: boolean;
-  /** Append raw text to the buffer. */
+  /** 追加原始文本到缓冲区。 */
   append: (text: string) => void;
-  /** Reset all text and stop typing. */
+  /** 重置所有文本并停止打字。 */
   reset: () => void;
-  /** Instantly reveal all buffered text. */
+  /** 立即显示缓冲区中的所有文本。 */
   revealAll: () => void;
 }
 
