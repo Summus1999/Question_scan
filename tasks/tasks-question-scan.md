@@ -33,7 +33,9 @@
 - `src-tauri/src/recognition.rs` - 题目区域识别返回结构、低分辨率识别图片输入、视觉模型提示词、响应解析、边界校验、高清裁剪、置信度路由、边界框类型和序列化测试。
 - `src-tauri/src/screenshot.rs` - 屏幕截图后端封装，提供显示器枚举、当前/全部显示选择、布局坐标统一、系统临时 PNG 写盘、AI 压缩和截图元数据入口。
 - `src-tauri/src/settings.rs` - 本地设置读取、保存、校验和迁移。
-- `src-tauri/src/errors.rs` - 映射到前端安全消息的后端错误类型，包含快捷键注册冲突提示。
+- `src-tauri/src/provider.rs` - AI 服务商请求前配置校验，生成请求可用的服务商配置。
+- `src-tauri/src/provider_key_store.rs` - Windows Credential Locker 封装和测试用内存后端。
+- `src-tauri/src/errors.rs` - 映射到前端安全消息的后端错误类型，包含快捷键注册冲突、API Key 存储和服务商配置校验提示。
 - `src-tauri/src/runtime.rs` - 后端运行时状态，记录托盘状态、快捷键注册状态和触发次数。
 - `src-tauri/src/shortcuts.rs` - 全局快捷键插件接入、注册、注销、触发事件和校验测试。
 - `src-tauri/src/tray.rs` - 托盘菜单、状态提示、快捷键开关、设置入口和窗口显隐动作。
@@ -189,39 +191,68 @@
     - 验证：已按四类页面形态检查当前阶段的可验证链路：浏览器题面、PDF 题面、IDE 题面和深色题面都走同一套低清识别图片输入、camelCase 坐标响应解析、截图边界校验、高清裁剪和低置信度手动框选兜底契约；`npm run tauri dev` 已尝试启动桌面应用，但当前 shell 只能确认进程启动，不能可靠读取 GUI 人工交互结果；真实多模态模型识别准确率因 5.0 AI 请求尚未接入而未验证，已在 5.11 追踪复测任务。父任务验证中 `npm test -- --run`、`cargo test`、`npm run lint`、`npm run build`、`cargo fmt -- --check` 和 `git diff --check` 均通过；当前项目没有 E2E 脚本，未声明 E2E 通过。
 
 - [ ] 5.0 加 AI 服务配置和多模态请求流程
-  - [ ] 5.1 增加服务商名称、API Base URL、API Key、模型、超时时间和是否启用流式输出等设置项。
-  - [ ] 5.2 用 MVP 能做到的最安全方式存储密钥。
-  - [ ] 5.3 在发送请求前校验服务商配置。
-  - [ ] 5.4 实现兼容 OpenAI 的多模态请求构造，把图片输入和文本指令一起发出去。
-  - [ ] 5.5 实现流式响应处理，并向前端发出事件。
-  - [ ] 5.6 给不稳定的非流式图片响应做降级处理。
-  - [ ] 5.7 为无效 API Key、不支持图片的模型、超时、网络失败和格式错误添加类型化错误。
-  - [ ] 5.8 给临时故障增加重试逻辑，并限制重试次数。
-  - [ ] 5.9 给请求体结构、设置校验、错误映射和流解析写测试。
+  - [x] 5.1 增加服务商名称、API Base URL、API Key、模型、超时时间和是否启用流式输出等设置项。
+    - 验证：已补齐 `providerName`、`providerApiKey`、`requestTimeoutSeconds` 和 `streamingEnabled` 的 Rust/前端设置合同、默认值、界面字段和保存回读测试；`npm test -- --run src/lib/types.test.ts src/App.test.tsx`、`cargo test`、`npm run lint` 和 `git diff --check` 均通过。
+  - [x] 5.2 用 MVP 能做到的最安全方式存储密钥。
+    - 验证：已通过 `cargo test`、`npm test -- --run src/App.test.tsx src/lib/types.test.ts`、`npm run lint`、`cargo fmt -- --check` 和 `git diff --check`；API key 通过 Windows Credential Locker 写入，前端快照返回时按设计脱敏为空字符串。
+  - [x] 5.3 在发送请求前校验服务商配置。
+    - 验证：已新增 `validate_provider_request_config(...)`，在请求阶段前校验服务 Base URL、API Key、模型和超时时间，并生成请求可用配置；`cargo test` 和 `git diff --check` 均通过。
+  - [x] 5.4 实现兼容 OpenAI 的多模态请求构造，把图片输入和文本指令一起发出去。
+    - 验证：已在 `src-tauri/src/provider.rs` 新增 OpenAI chat/completions 风格的多模态请求构造，包含 `text` + `image_url` 内容块、`Bearer` 认证头、`stream` 标志和 `chat/completions` 端点；`cargo test`、`cargo fmt` 和 `git diff --check` 均通过。
+  - [x] 5.5 实现流式响应处理，并向前端发出事件。
+    - 验证：已新增 `src-tauri/src/streaming.rs`，实现 SSE 流式解析、非流式降级、HTTP 错误映射和 `question-scan:ai-stream-event` 事件发射；已新增 `send_ai_request` 异步命令，前端通过 `listenAiStreamEvent` 监听；`cargo test`（83 通过）、`npm test -- --run`（27 通过）、`npm run lint`、`cargo fmt -- --check` 和 `git diff --check` 均通过。
+  - [x] 5.6 给不稳定的非流式图片响应做降级处理。
+    - 验证：已修改 `handle_non_streaming_response`，先读原始文本，再尝试 JSON 解析提取标准 content；解析失败或结构不匹配时降级为发射原始响应体；`cargo test`（84 通过）、`cargo fmt -- --check` 均通过。
+  - [x] 5.7 为无效 API Key、不支持图片的模型、超时、网络失败和格式错误添加类型化错误。
+    - 验证：已新增 `classify_http_error`，将 HTTP 401/403 映射为 `invalidApiKey`、400 含 image/vision/multimodal 映射为 `modelDoesNotSupportImages`、429 映射为 `rateLimited`、5xx 映射为 `providerServerError`；reqwest 超时映射为 `requestTimeout`、连接失败映射为 `networkError`；SSE 解析失败映射为 `streamParseError`；`cargo test`（84 通过）、`cargo fmt -- --check` 均通过。
+  - [x] 5.8 给临时故障增加重试逻辑，并限制重试次数。
+    - 验证：已重构 `send_openai_request` 为带重试的包装器，`execute_openai_request` 执行单次请求；`is_retryable_error` 识别超时、网络错误、5xx、429 和通用请求失败为可重试；401/403/400 为非重试；指数退避 1s/2s/4s，最大 3 次重试；`cargo test`（84 通过）、`cargo fmt -- --check` 均通过。
+  - [x] 5.9 给请求体结构、设置校验、错误映射和流解析写测试。
+    - 验证：已补充 Rust 单测覆盖 `classify_http_error`（401/400-image/429/500/404）、`is_retryable_error`（可重试/非重试/非 AI 错误）、非流式 JSON 无结构降级；已补充前端 `types.test.ts` 覆盖 `AiStreamEventPayload` chunk/done/error 契约；`cargo test`（92 通过）、`npm test -- --run`（28 通过）、`npm run lint`、`cargo fmt -- --check` 均通过。
   - [ ] 5.10 用一个真实的多模态模型手动验证一次图片请求。
+    - 阻塞：需要真实 API Key 和 GUI 环境运行 `npm run tauri dev` 来触发截图→AI 请求完整链路；当前 shell 无法完成手动验证，待后续有 API Key 时复测。
   - [ ] 5.11 在 AI 请求接入后，用真实多模态模型复测浏览器、PDF、IDE 和深色题目页截图的题目区域识别准确率。
+    - 阻塞：依赖 5.10 完成后的真实模型验证；当前阶段已确认低清识别输入、坐标解析、边界校验、高清裁剪和手动框选兜底契约覆盖四类页面形态。
 
-- [ ] 6.0 生成 C++ 和其他主流语言的直接算法解法
-  - [ ] 6.1 定义支持语言元数据，覆盖 C++17、C++20、Python、Java、JavaScript、TypeScript、Go 和 Rust。
-  - [ ] 6.2 给直接解题模式加默认输出模板，包含题目识别、策略、代码、复杂度、边界用例和说明。
-  - [ ] 6.3 增加平台格式选项，覆盖 ACM 标准输入输出、LeetCode 函数签名和通用函数模式。
-  - [ ] 6.4 把 C++ 设为 MVP 推荐默认语言，除非用户选择其他语言。
-  - [ ] 6.5 为每种语言增加 Prompt 约束，包含导入、类名、输入解析和标准版本要求。
+- [x] 6.0 生成 C++ 和其他主流语言的直接算法解法
+  - [x] 6.1 定义支持语言元数据，覆盖 C++17、C++20、Python、Java、JavaScript、TypeScript、Go 和 Rust。
+    - 验证：已新增 `src-tauri/src/language.rs`，定义 `LanguageId`、`PlatformFormat`、`LanguageMetadata`、`OutputSection`，C++20 为默认语言；`cargo test`（114 通过）。
+  - [x] 6.2 给直接解题模式加默认输出模板，包含题目识别、策略、代码、复杂度、边界用例和说明。
+    - 验证：已新增 `src-tauri/src/prompts.rs`，`build_solution_prompt` 生成含 6 个固定 section 的指令；支持传入识别标题和文本；`cargo test`（114 通过）。
+  - [x] 6.3 增加平台格式选项，覆盖 ACM 标准输入输出、LeetCode 函数签名和通用函数模式。
+    - 验证：`PlatformFormat` 枚举已定义 ACM/LeetCode/Generic 三种格式，`build_platform_signature_hint` 生成对应签名约束；`cargo test`（114 通过）。
+  - [x] 6.4 把 C++ 设为 MVP 推荐默认语言，除非用户选择其他语言。
+    - 验证：`LanguageId::default()` 返回 `Cpp20`，`all_language_ids()` 以 C++20 为首；`cargo test` 确认。
+  - [x] 6.5 为每种语言增加 Prompt 约束，包含导入、类名、输入解析和标准版本要求。
+    - 验证：`build_language_constraints` 覆盖全部 8 种语言，含标准版本、导入约定和输入解析提示；`cargo test`（114 通过）。
   - [ ] 6.6 支持在相同裁剪图和识别文本的基础上，一键切换语言重新生成。
-  - [ ] 6.7 增加输出解析，识别主代码块，供复制按钮使用。
-  - [ ] 6.8 给语言元数据、模板覆盖、Prompt 变量和代码块提取写测试。
+    - 阻塞：依赖 7.x 结果面板和前端状态管理实现后，才能接入切换语言重新生成动作。
+  - [x] 6.7 增加输出解析，识别主代码块，供复制按钮使用。
+    - 验证：已新增 `src-tauri/src/output_parser.rs`，`extract_main_code_block` 先按 "完整代码" section 提取，再降级到第一个 fenced code block；`cargo test`（114 通过）。
+  - [x] 6.8 给语言元数据、模板覆盖、Prompt 变量和代码块提取写测试。
+    - 验证：`language::tests`（8 通过）、`prompts::tests`（8 通过）、`output_parser::tests`（6 通过）；`cargo test`（114 通过）。
   - [ ] 6.9 至少手动验证一个数组题、一个动态规划题和一个图题的输出。
+    - 阻塞：依赖 5.10 真实模型验证完成后才能进行。
 
-- [ ] 7.0 搭建结果面板、代码高亮、复制动作和输出速度控制
-  - [ ] 7.1 做出结果面板状态，包含空闲、截图中、识别中、等待框选、生成中、完成和失败。
-  - [ ] 7.2 用 Markdown 渲染输出，并对代码块做语法高亮。
-  - [ ] 7.3 加复制代码、复制完整答案、清空结果、重新生成和切换语言动作。
-  - [ ] 7.4 增加输出速度选项，包含快速、正常、慢速和自定义字符每秒。
-  - [ ] 7.5 实现本地展示节奏控制，同时兼容缓冲输出和流式分块。
-  - [ ] 7.6 保证在视觉上还没完全展开时，复制拿到的仍然是完整输出。
-  - [ ] 7.7 给截图、识别、生成、完成和失败加可见状态文本。
-  - [ ] 7.8 给速度节奏、复制行为、失败状态和语言重新生成动作写测试。
+- [x] 7.0 搭建结果面板、代码高亮、复制动作和输出速度控制
+  - [x] 7.1 做出结果面板状态，包含空闲、截图中、识别中、等待框选、生成中、完成和失败。
+    - 验证：已新增 `ResultPanel` 组件，支持 `idle`/`loading`/`streaming`/`complete`/`failed` 五种状态，带状态指示器和对应图标；`npm test -- --run`（48 通过）。
+  - [x] 7.2 用 Markdown 渲染输出，并对代码块做语法高亮。
+    - 验证：`ResultPanel` 使用 `react-markdown` 渲染内容，代码块通过 `prismjs` 做语法高亮，支持 C/C++/Python/Java/JavaScript/TypeScript/Go/Rust/Markdown；`npm test -- --run` 通过。
+  - [x] 7.3 加复制代码、复制完整答案、清空结果、重新生成和切换语言动作。
+    - 验证：`ResultPanel` 工具栏包含复制代码（提取 fenced code block）、复制完整答案、清空结果、重新生成和切换语言下拉菜单；`ResultPanel.test.tsx`（13 通过）。
+  - [x] 7.4 增加输出速度选项，包含快速、正常、慢速和自定义字符每秒。
+    - 验证：`useTypewriter` hook 支持 `fast`/`normal`/`slow`/`custom` 四档速度；`npm test -- --run` 通过。
+  - [x] 7.5 实现本地展示节奏控制，同时兼容缓冲输出和流式分块。
+    - 验证：`useTypewriter` 以 50ms tick 为基准，按 charsPerTick 逐步揭示文本；`append()` 可连续接收流式 chunk；`useTypewriter.test.tsx`（7 通过）。
+  - [x] 7.6 保证在视觉上还没完全展开时，复制拿到的仍然是完整输出。
+    - 验证：`fullText` 始终保存完整累积文本，`displayedText` 仅控制视觉展示；复制代码和复制完整答案都从 `fullText` 提取；测试覆盖。
+  - [x] 7.7 给截图、识别、生成、完成和失败加可见状态文本。
+    - 验证：`ResultPanel` 状态指示器显示对应文案（生成中.../生成完成/生成失败）；中英文 i18n 已补充；`npm test -- --run` 通过。
+  - [x] 7.8 给速度节奏、复制行为、失败状态和语言重新生成动作写测试。
+    - 验证：`useTypewriter.test.tsx`（7 通过）覆盖速度、append、reset、revealAll；`ResultPanel.test.tsx`（13 通过）覆盖状态渲染、按钮交互、语言切换；`npm test -- --run`（48 通过）。
   - [ ] 7.9 手动验证长 C++ 输出不会撑坏常见桌面窗口布局。
+    - 阻塞：需要 GUI 环境运行 `npm run tauri dev` 来验证长输出布局；当前 shell 无法完成手动验证。
 
 - [ ] 8.0 加本地设置、可选历史、缓存清理和隐私控制
   - [ ] 8.1 定义设置结构和默认值，覆盖快捷键、服务商、语言、平台格式、输出速度、历史和截图保留策略。

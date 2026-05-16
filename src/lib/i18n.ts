@@ -23,6 +23,7 @@ type AppMessages = {
   appStatus: Record<AppStatus, string>;
   aiResultState: Record<AiResultState, string>;
   fields: {
+    apiKey: string;
     charactersPerSecond: string;
     defaultLanguage: string;
     globalShortcut: string;
@@ -31,7 +32,10 @@ type AppMessages = {
     model: string;
     outputSpeed: string;
     presentation: string;
+    providerName: string;
     providerBaseUrl: string;
+    requestTimeoutSeconds: string;
+    streamingEnabled: string;
     summary: string;
     theme: string;
   };
@@ -65,6 +69,25 @@ type AppMessages = {
     body: string;
     title: string;
   };
+  resultPanel: {
+    clearResult: string;
+    clearResultNotice: string;
+    codeCopied: string;
+    copyCode: string;
+    copyFullAnswer: string;
+    copyFullAnswerNotice: string;
+    failedStatus: string;
+    fullAnswerCopied: string;
+    generatingStatus: string;
+    idleHint: string;
+    recognizingStatus: string;
+    regenerate: string;
+    regenerateNotice: string;
+    screenshotStatus: string;
+    switchLanguage: string;
+    switchLanguageNotice: string;
+    completeStatus: string;
+  };
   runtime: {
     aiResultState: string;
     settingsPath: string;
@@ -82,6 +105,8 @@ type AppMessages = {
     launchToTrayLabel: string;
     saveHistoryDescription: string;
     saveHistoryLabel: string;
+    streamingEnabledDescription: string;
+    streamingEnabledLabel: string;
     shortcutEnabledDescription: string;
     shortcutEnabledLabel: string;
     subtitle: string;
@@ -117,6 +142,7 @@ const zhCn: AppMessages = {
     failed: '失败',
   },
   fields: {
+    apiKey: 'API Key',
     charactersPerSecond: '每秒字符数',
     defaultLanguage: '默认编程语言',
     globalShortcut: '全局快捷键',
@@ -125,7 +151,10 @@ const zhCn: AppMessages = {
     model: '模型',
     outputSpeed: '输出速度',
     presentation: '展示方式',
+    providerName: '服务商名称',
     providerBaseUrl: '服务 Base URL',
+    requestTimeoutSeconds: '请求超时时间（秒）',
+    streamingEnabled: '启用流式输出',
     summary: '摘要',
     theme: '主题',
   },
@@ -169,6 +198,25 @@ const zhCn: AppMessages = {
     body: '此区域在阶段 1 保持占位。后续会在这里接入截图、识别和答案输出。',
     title: '结果面板占位',
   },
+  resultPanel: {
+    clearResult: '清空结果',
+    clearResultNotice: '结果已清空。',
+    codeCopied: '代码已复制',
+    copyCode: '复制代码',
+    copyFullAnswer: '复制完整答案',
+    copyFullAnswerNotice: '完整答案已复制。',
+    failedStatus: '生成失败',
+    fullAnswerCopied: '完整答案已复制',
+    generatingStatus: '生成中...',
+    idleHint: '按快捷键截图后，结果将显示在这里',
+    recognizingStatus: '识别题目中...',
+    regenerate: '重新生成',
+    regenerateNotice: '正在重新生成...',
+    screenshotStatus: '截图中...',
+    switchLanguage: '切换语言',
+    switchLanguageNotice: '已切换语言，正在重新生成...',
+    completeStatus: '生成完成',
+  },
   runtime: {
     aiResultState: 'AI 结果状态',
     settingsPath: '设置路径',
@@ -193,6 +241,9 @@ const zhCn: AppMessages = {
     launchToTrayLabel: '启动到托盘',
     saveHistoryDescription: '保存本地答案快照，便于稍后回看。',
     saveHistoryLabel: '保存历史',
+    streamingEnabledDescription:
+      '在服务端支持时启用增量输出，更快看到逐步返回的内容。',
+    streamingEnabledLabel: '启用流式输出',
     shortcutEnabledDescription: '允许应用在后台响应配置的全局快捷键。',
     shortcutEnabledLabel: '启用全局快捷键',
     subtitle: '本地默认值、服务占位配置，以及后续阶段会扩展的外壳级选项。',
@@ -239,6 +290,7 @@ const enUs: AppMessages = {
     failed: 'Failed',
   },
   fields: {
+    apiKey: 'API key',
     charactersPerSecond: 'Characters per second',
     defaultLanguage: 'Default language',
     globalShortcut: 'Global shortcut',
@@ -247,7 +299,10 @@ const enUs: AppMessages = {
     model: 'Model',
     outputSpeed: 'Output speed',
     presentation: 'Presentation',
+    providerName: 'Provider name',
     providerBaseUrl: 'Provider base URL',
+    requestTimeoutSeconds: 'Request timeout (seconds)',
+    streamingEnabled: 'Enable streaming output',
     summary: 'Summary',
     theme: 'Theme',
   },
@@ -293,6 +348,25 @@ const enUs: AppMessages = {
     body: 'This area is intentionally empty for stage 1. Later stages will mount capture, recognition, and answer output here.',
     title: 'Placeholder result surface',
   },
+  resultPanel: {
+    clearResult: 'Clear result',
+    clearResultNotice: 'Result cleared.',
+    codeCopied: 'Code copied',
+    copyCode: 'Copy code',
+    copyFullAnswer: 'Copy full answer',
+    copyFullAnswerNotice: 'Full answer copied.',
+    failedStatus: 'Generation failed',
+    fullAnswerCopied: 'Full answer copied',
+    generatingStatus: 'Generating...',
+    idleHint: 'Press the shortcut to capture; results will appear here',
+    recognizingStatus: 'Recognizing question...',
+    regenerate: 'Regenerate',
+    regenerateNotice: 'Regenerating...',
+    screenshotStatus: 'Capturing...',
+    switchLanguage: 'Switch language',
+    switchLanguageNotice: 'Language switched, regenerating...',
+    completeStatus: 'Generation complete',
+  },
   runtime: {
     aiResultState: 'AI result state',
     settingsPath: 'Settings path',
@@ -319,6 +393,9 @@ const enUs: AppMessages = {
     launchToTrayLabel: 'Launch to tray',
     saveHistoryDescription: 'Store the local answer snapshot for later review.',
     saveHistoryLabel: 'Save history',
+    streamingEnabledDescription:
+      'Enable incremental output when the provider supports streaming responses.',
+    streamingEnabledLabel: 'Enable streaming output',
     shortcutEnabledDescription:
       'Allow the app to respond to the configured shortcut in the background.',
     shortcutEnabledLabel: 'Enable global shortcut',

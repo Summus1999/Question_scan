@@ -13,6 +13,7 @@ const {
   listenGlobalShortcutTriggeredMock,
   listenOpenSettingsMock,
   listenRuntimeStateChangedMock,
+  listenAiStreamEventMock,
 } = vi.hoisted(() => ({
   loadAppStateMock: vi.fn(),
   saveSettingsMock: vi.fn(),
@@ -23,6 +24,7 @@ const {
   listenGlobalShortcutTriggeredMock: vi.fn(),
   listenOpenSettingsMock: vi.fn(),
   listenRuntimeStateChangedMock: vi.fn(),
+  listenAiStreamEventMock: vi.fn(),
 }));
 
 vi.mock('./lib/api', () => ({
@@ -35,6 +37,7 @@ vi.mock('./lib/api', () => ({
   listenGlobalShortcutTriggered: listenGlobalShortcutTriggeredMock,
   listenOpenSettings: listenOpenSettingsMock,
   listenRuntimeStateChanged: listenRuntimeStateChangedMock,
+  listenAiStreamEvent: listenAiStreamEventMock,
 }));
 
 describe('App shell', () => {
@@ -43,6 +46,7 @@ describe('App shell', () => {
     listenGlobalShortcutTriggeredMock.mockResolvedValue(vi.fn());
     listenOpenSettingsMock.mockResolvedValue(vi.fn());
     listenRuntimeStateChangedMock.mockResolvedValue(vi.fn());
+    listenAiStreamEventMock.mockResolvedValue(vi.fn());
   });
 
   it('renders the stage 1 shell in Chinese by default after loading the app snapshot', async () => {
@@ -67,13 +71,23 @@ describe('App shell', () => {
       );
     });
 
+    expect(screen.getByLabelText('服务商名称')).toHaveValue(
+      DEFAULT_SETTINGS.providerName,
+    );
     expect(screen.getByLabelText('模型')).toHaveValue('qwen-max');
+    expect(screen.getByLabelText('请求超时时间（秒）')).toHaveValue(
+      DEFAULT_SETTINGS.requestTimeoutSeconds,
+    );
+    expect(screen.getByLabelText('API Key')).toHaveValue(
+      DEFAULT_SETTINGS.providerApiKey,
+    );
+    expect(screen.getByLabelText(/启用流式输出/)).toBeChecked();
     expect(screen.getByLabelText('界面语言')).toHaveValue('zhCn');
     expect(screen.getByLabelText('全局快捷键')).toHaveValue('Ctrl+Shift+Q');
     expect(screen.getByText('启用全局快捷键')).toBeInTheDocument();
     expect(screen.getByText('运行状态快照')).toBeInTheDocument();
     expect(screen.getByText('设置')).toBeInTheDocument();
-    expect(screen.getByText('结果面板占位')).toBeInTheDocument();
+    expect(screen.getByTestId('result-empty-state')).toBeInTheDocument();
   });
 
   it('shows the crop overlay when the backend enters manual selection mode', async () => {
@@ -111,7 +125,7 @@ describe('App shell', () => {
 
     expect(screen.queryByText('手动框选')).not.toBeInTheDocument();
     expect(screen.getByText('已取消手动框选。')).toBeInTheDocument();
-    expect(screen.getByText(/"screenshotState": "idle"/)).toBeInTheDocument();
+    expect(screen.getByTestId('result-empty-state')).toBeInTheDocument();
   });
 
   it('retries automatic recognition from manual fallback', async () => {
@@ -134,9 +148,7 @@ describe('App shell', () => {
     expect(
       screen.getByText('已清空手动选区，重新进入自动识别状态。'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/"screenshotState": "cropping"/),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('result-empty-state')).toBeInTheDocument();
   });
 
   it('confirms the selected manual crop for the next crop step', async () => {
@@ -173,8 +185,7 @@ describe('App shell', () => {
         '已确认裁剪区域，后续会使用这个选区生成高清裁剪图。 (220 x 120)',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/"screenshotState": "ready"/)).toBeInTheDocument();
-    expect(screen.getByText(/"manualCropSelection"/)).toBeInTheDocument();
+    expect(screen.getByTestId('result-empty-state')).toBeInTheDocument();
   });
 
   it('switches the visible shell language to English and persists the locale', async () => {
@@ -243,6 +254,53 @@ describe('App shell', () => {
         globalShortcutEnabled: false,
       });
     });
+  });
+
+  it('persists provider settings while the backend redacts the API key snapshot', async () => {
+    loadAppStateMock.mockResolvedValue({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      settings: DEFAULT_SETTINGS,
+    });
+    saveSettingsMock.mockImplementation(async (settings) => ({
+      ...DEFAULT_APP_STATE,
+      status: 'ready',
+      settings: {
+        ...settings,
+        providerApiKey: '',
+      },
+    }));
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('服务商名称')).toHaveValue(
+        DEFAULT_SETTINGS.providerName,
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText('服务商名称'), {
+      target: { value: 'Example AI' },
+    });
+    fireEvent.change(screen.getByLabelText('API Key'), {
+      target: { value: 'sk-test-123' },
+    });
+    fireEvent.change(screen.getByLabelText('请求超时时间（秒）'), {
+      target: { value: '90' },
+    });
+    fireEvent.click(screen.getByLabelText(/启用流式输出/));
+    fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
+
+    await waitFor(() => {
+      expect(saveSettingsMock).toHaveBeenCalledWith({
+        ...DEFAULT_SETTINGS,
+        providerName: 'Example AI',
+        providerApiKey: 'sk-test-123',
+        requestTimeoutSeconds: 90,
+        streamingEnabled: false,
+      });
+    });
+    expect(screen.getByLabelText('API Key')).toHaveValue('');
   });
 
   it('shows backend shortcut conflict messages returned from Rust', async () => {

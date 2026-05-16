@@ -2,7 +2,6 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
-  ChevronRight,
   Languages,
   Monitor,
   RefreshCw,
@@ -21,8 +20,11 @@ import {
   useState,
 } from 'react';
 import { CropOverlay } from './components/CropOverlay';
+import { ResultPanel } from './components/ResultPanel';
+import { useTypewriter } from './hooks/useTypewriter';
 import {
   hideMainWindow,
+  listenAiStreamEvent,
   listenGlobalShortcutTriggered,
   listenOpenSettings,
   listenRuntimeStateChanged,
@@ -40,6 +42,7 @@ import {
   DEFAULT_APP_STATE,
   DEFAULT_SETTINGS,
   LANGUAGE_OPTIONS,
+  type LanguageId,
   OUTPUT_SPEED_OPTIONS,
   UI_LOCALES,
 } from './lib/types';
@@ -66,14 +69,24 @@ function App() {
   const [cropSelection, setCropSelection] = useState<CropSelectionRect | null>(
     null,
   );
-  const [confirmedCropSelection, setConfirmedCropSelection] =
-    useState<CropSelectionRect | null>(null);
+  const [, setConfirmedCropSelection] = useState<CropSelectionRect | null>(
+    null,
+  );
   const [isBusy, setIsBusy] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [notice, setNotice] = useState<{
     tone: BannerTone;
     text: string;
   } | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [currentLanguage, setCurrentLanguage] = useState<LanguageId>(
+    DEFAULT_SETTINGS.defaultLanguage,
+  );
+
+  const typewriter = useTypewriter({
+    speed: draft.outputSpeed,
+    customCharactersPerSecond: draft.customCharactersPerSecond,
+  });
 
   const messages = useMemo(() => getMessages(draft.uiLocale), [draft.uiLocale]);
   const cropOverlayMessages = useMemo(
@@ -234,6 +247,62 @@ function App() {
     [cropOverlayMessages.confirmNotice],
   );
 
+  // AI stream event listener
+  useEffect(() => {
+    let cancelled = false;
+    let unlistenStream: (() => void) | null = null;
+
+    async function wireStreamEvents() {
+      try {
+        unlistenStream = await listenAiStreamEvent((event) => {
+          if (cancelled) return;
+          const payload = event.payload;
+
+          switch (payload.type) {
+            case 'chunk': {
+              typewriter.append(payload.content);
+              setState((current) => ({
+                ...current,
+                aiResultState: 'streaming',
+                trayStatus: 'generating',
+              }));
+              break;
+            }
+            case 'done': {
+              setState((current) => ({
+                ...current,
+                aiResultState: 'complete',
+                trayStatus: 'complete',
+              }));
+              break;
+            }
+            case 'error': {
+              setAiError(payload.message);
+              setState((current) => ({
+                ...current,
+                aiResultState: 'failed',
+                trayStatus: 'failed',
+              }));
+              break;
+            }
+          }
+        });
+      } catch (error) {
+        const message = errorMessage(error, 'Failed to listen to AI stream');
+        setNotice({ tone: 'error', text: message });
+      }
+    }
+
+    void wireStreamEvents();
+
+    return () => {
+      cancelled = true;
+      if (unlistenStream) {
+        unlistenStream();
+      }
+    };
+  }, [errorMessage, typewriter]);
+
   useEffect(() => {
     let cancelled = false;
     const unlisteners: Array<() => void> = [];
@@ -291,6 +360,86 @@ function App() {
     messages.notices.shortcutListenerFailed,
     messages.notices.shortcutTriggered,
   ]);
+
+  // Result panel action handlers
+  const handleCopyCode = useCallback(() => {
+    // Extract code blocks from fullText
+    const codeBlockRegex = /```[\w]*\n([\s\S]*?)```/g;
+    const matches: string[] = [];
+    let match: RegExpExecArray | null = null;
+    do {
+      match = codeBlockRegex.exec(typewriter.fullText);
+      if (match) {
+        matches.push(match[1].trim());
+      }
+    } while (match !== null);
+    const codeToCopy = matches.length > 0 ? matches.join('\n\n') : '';
+    if (codeToCopy) {
+      void navigator.clipboard.writeText(codeToCopy);
+      setNotice({
+        tone: 'neutral',
+        text: messages.resultPanel.codeCopied,
+      });
+    }
+  }, [typewriter.fullText, messages.resultPanel.codeCopied]);
+
+  const handleCopyFullAnswer = useCallback(() => {
+    if (typewriter.fullText) {
+      void navigator.clipboard.writeText(typewriter.fullText);
+      setNotice({
+        tone: 'neutral',
+        text: messages.resultPanel.copyFullAnswerNotice,
+      });
+    }
+  }, [typewriter.fullText, messages.resultPanel.copyFullAnswerNotice]);
+
+  const handleClearResult = useCallback(() => {
+    typewriter.reset();
+    setAiError(null);
+    setState((current) => ({
+      ...current,
+      aiResultState: 'idle',
+      trayStatus: 'idle',
+    }));
+    setNotice({
+      tone: 'neutral',
+      text: messages.resultPanel.clearResultNotice,
+    });
+  }, [typewriter, messages.resultPanel.clearResultNotice]);
+
+  const handleRegenerate = useCallback(() => {
+    typewriter.reset();
+    setAiError(null);
+    setState((current) => ({
+      ...current,
+      aiResultState: 'loading',
+      trayStatus: 'generating',
+    }));
+    setNotice({
+      tone: 'neutral',
+      text: messages.resultPanel.regenerateNotice,
+    });
+    // TODO: Trigger actual AI request regeneration when screenshot flow is wired
+  }, [typewriter, messages.resultPanel.regenerateNotice]);
+
+  const handleSwitchLanguage = useCallback(
+    (language: LanguageId) => {
+      setCurrentLanguage(language);
+      typewriter.reset();
+      setAiError(null);
+      setState((current) => ({
+        ...current,
+        aiResultState: 'loading',
+        trayStatus: 'generating',
+      }));
+      setNotice({
+        tone: 'neutral',
+        text: messages.resultPanel.switchLanguageNotice,
+      });
+      // TODO: Trigger actual AI request with new language when screenshot flow is wired
+    },
+    [typewriter, messages.resultPanel.switchLanguageNotice],
+  );
 
   const isDirty = useMemo(
     () => JSON.stringify(draft) !== JSON.stringify(state.settings),
@@ -515,6 +664,21 @@ function App() {
                   </div>
                 </Field>
 
+                <Field
+                  label={messages.fields.providerName}
+                  labelFor="provider-name"
+                >
+                  <input
+                    id="provider-name"
+                    className="field-input"
+                    value={draft.providerName}
+                    onChange={(event) =>
+                      updateField('providerName', event.target.value)
+                    }
+                    placeholder="OpenAI-compatible"
+                  />
+                </Field>
+
                 <Field label={messages.fields.model} labelFor="provider-model">
                   <input
                     id="provider-model"
@@ -540,6 +704,43 @@ function App() {
                       updateField('providerBaseUrl', event.target.value)
                     }
                     placeholder="https://api.openai.com/v1"
+                  />
+                </Field>
+
+                <Field
+                  label={messages.fields.requestTimeoutSeconds}
+                  labelFor="request-timeout-seconds"
+                >
+                  <input
+                    id="request-timeout-seconds"
+                    className="field-input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={draft.requestTimeoutSeconds}
+                    onChange={(event) =>
+                      updateField(
+                        'requestTimeoutSeconds',
+                        Number(event.target.value || 0),
+                      )
+                    }
+                  />
+                </Field>
+
+                <Field
+                  label={messages.fields.apiKey}
+                  labelFor="provider-api-key"
+                >
+                  <input
+                    id="provider-api-key"
+                    className="field-input"
+                    type="password"
+                    value={draft.providerApiKey}
+                    onChange={(event) =>
+                      updateField('providerApiKey', event.target.value)
+                    }
+                    autoComplete="off"
+                    spellCheck={false}
                   />
                 </Field>
 
@@ -625,6 +826,16 @@ function App() {
 
                 <Field label={messages.fields.presentation}>
                   <div className="grid gap-3">
+                    <ToggleRow
+                      label={messages.settings.streamingEnabledLabel}
+                      description={
+                        messages.settings.streamingEnabledDescription
+                      }
+                      checked={draft.streamingEnabled}
+                      onChange={(checked) =>
+                        updateField('streamingEnabled', checked)
+                      }
+                    />
                     <ToggleRow
                       label={messages.settings.shortcutEnabledLabel}
                       description={messages.settings.shortcutEnabledDescription}
@@ -772,39 +983,39 @@ function App() {
               />
             </div>
 
-            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    {messages.result.title}
-                  </h3>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    {messages.result.body}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-slate-400" />
-              </div>
-
-              <pre className="mt-4 overflow-auto rounded-md border border-slate-200 bg-white px-3 py-3 text-xs leading-5 text-slate-700">
-                {JSON.stringify(
-                  {
-                    status: state.status,
-                    trayStatus: state.trayStatus,
-                    screenshotState: state.screenshotState,
-                    aiResultState: state.aiResultState,
-                    settings: state.settings,
-                    settingsPath: state.settingsPath,
-                    startupWarning: state.startupWarning,
-                    globalShortcutRegistered: state.globalShortcutRegistered,
-                    globalShortcutError: state.globalShortcutError,
-                    globalShortcutTriggerCount:
-                      state.globalShortcutTriggerCount,
-                    manualCropSelection: confirmedCropSelection,
-                  },
-                  null,
-                  2,
-                )}
-              </pre>
+            <div className="mt-5 flex h-[480px] flex-col">
+              <ResultPanel
+                state={state.aiResultState}
+                fullText={typewriter.fullText}
+                displayedText={typewriter.displayedText}
+                error={aiError}
+                currentLanguage={currentLanguage}
+                messages={{
+                  title: messages.result.title,
+                  idleHint: messages.resultPanel.idleHint,
+                  screenshotStatus: messages.resultPanel.screenshotStatus,
+                  recognizingStatus: messages.resultPanel.recognizingStatus,
+                  generatingStatus: messages.resultPanel.generatingStatus,
+                  completeStatus: messages.resultPanel.completeStatus,
+                  failedStatus: messages.resultPanel.failedStatus,
+                  copyCode: messages.resultPanel.copyCode,
+                  copyCodeSuccess: messages.resultPanel.codeCopied,
+                  copyFullAnswer: messages.resultPanel.copyFullAnswer,
+                  copyFullAnswerSuccess:
+                    messages.resultPanel.copyFullAnswerNotice,
+                  clearResult: messages.resultPanel.clearResult,
+                  regenerate: messages.resultPanel.regenerate,
+                  switchLanguage: messages.resultPanel.switchLanguage,
+                  codeCopied: messages.resultPanel.codeCopied,
+                  answerCopied: messages.resultPanel.fullAnswerCopied,
+                  resultCleared: messages.resultPanel.clearResultNotice,
+                }}
+                onCopyCode={handleCopyCode}
+                onCopyFullAnswer={handleCopyFullAnswer}
+                onClearResult={handleClearResult}
+                onRegenerate={handleRegenerate}
+                onSwitchLanguage={handleSwitchLanguage}
+              />
             </div>
           </section>
         </div>
