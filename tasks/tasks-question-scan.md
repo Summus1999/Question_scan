@@ -225,8 +225,8 @@
     - 验证：`LanguageId::default()` 返回 `Cpp20`，`all_language_ids()` 以 C++20 为首；`cargo test` 确认。
   - [x] 6.5 为每种语言增加 Prompt 约束，包含导入、类名、输入解析和标准版本要求。
     - 验证：`build_language_constraints` 覆盖全部 8 种语言，含标准版本、导入约定和输入解析提示；`cargo test`（114 通过）。
-  - [ ] 6.6 支持在相同裁剪图和识别文本的基础上，一键切换语言重新生成。
-    - 阻塞：依赖 7.x 结果面板和前端状态管理实现后，才能接入切换语言重新生成动作。
+  - [x] 6.6 支持在相同裁剪图和识别文本的基础上，一键切换语言重新生成。
+    - 验证：已新增 `src-tauri/src/session.rs` 的 `SessionContext`，保存最近一次截图和识别数据；新增 `regenerate_with_language` 命令复用保存的数据构造新语言 prompt 并重发 AI 请求；前端 `handleSwitchLanguage` 调用新命令；`cargo test`（135 通过，含 5 个 session 测试和 4 个 commands 测试），`npm test -- --run`（48 通过）。
   - [x] 6.7 增加输出解析，识别主代码块，供复制按钮使用。
     - 验证：已新增 `src-tauri/src/output_parser.rs`，`extract_main_code_block` 先按 "完整代码" section 提取，再降级到第一个 fenced code block；`cargo test`（114 通过）。
   - [x] 6.8 给语言元数据、模板覆盖、Prompt 变量和代码块提取写测试。

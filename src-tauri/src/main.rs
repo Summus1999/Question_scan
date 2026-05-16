@@ -9,6 +9,7 @@ mod provider_key_store;
 mod recognition;
 mod runtime;
 mod screenshot;
+mod session;
 mod settings;
 mod shortcuts;
 mod streaming;
@@ -17,6 +18,7 @@ mod tray;
 use crate::errors::AppError;
 use crate::history::HistoryStore;
 use crate::runtime::RuntimeStore;
+use crate::session::SessionContext;
 use crate::settings::SettingsStore;
 use tauri::{Manager, RunEvent, WindowEvent};
 use tracing_subscriber::EnvFilter;
@@ -47,6 +49,7 @@ fn main() {
             app.manage(RuntimeStore::default());
             app.manage(store);
             app.manage(history_store);
+            app.manage(SessionContext::default());
 
             cleanup_orphaned_temp_images(app.handle());
 
@@ -88,6 +91,7 @@ fn main() {
             commands::toggle_main_window,
             commands::set_tray_status,
             commands::send_ai_request,
+            commands::regenerate_with_language,
             commands::clear_cache,
             commands::list_history,
             commands::delete_history_entry,

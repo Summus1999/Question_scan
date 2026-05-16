@@ -17,6 +17,7 @@ export const BACKEND_COMMANDS = {
   toggleMainWindow: 'toggle_main_window',
   setTrayStatus: 'set_tray_status',
   sendAiRequest: 'send_ai_request',
+  regenerateWithLanguage: 'regenerate_with_language',
   clearCache: 'clear_cache',
   listHistory: 'list_history',
   deleteHistoryEntry: 'delete_history_entry',
@@ -64,6 +65,12 @@ type BackendCommandSpec = {
       instruction: string;
       imageBytes: number[];
       imageMimeType: string;
+    };
+    response: undefined;
+  };
+  [BACKEND_COMMANDS.regenerateWithLanguage]: {
+    payload: {
+      language: string;
     };
     response: undefined;
   };
@@ -196,6 +203,14 @@ export function sendAiRequest(
     instruction,
     imageBytes: Array.from(imageBytes),
     imageMimeType,
+  });
+}
+
+// Regenerates the AI solution with a different language using the same screenshot data.
+// Results arrive via listenAiStreamEvent.
+export function regenerateWithLanguage(language: string): Promise<void> {
+  return invokeBackend(BACKEND_COMMANDS.regenerateWithLanguage, {
+    language,
   });
 }
 

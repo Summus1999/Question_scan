@@ -35,6 +35,7 @@ import {
   listenRuntimeStateChanged,
   listHistory,
   loadAppState,
+  regenerateWithLanguage,
   resetSettings,
   saveSettings,
   showMainWindow,
@@ -433,7 +434,7 @@ function App() {
   }, [typewriter, messages.resultPanel.regenerateNotice]);
 
   const handleSwitchLanguage = useCallback(
-    (language: LanguageId) => {
+    async (language: LanguageId) => {
       setCurrentLanguage(language);
       typewriter.reset();
       setAiError(null);
@@ -446,9 +447,27 @@ function App() {
         tone: 'neutral',
         text: messages.resultPanel.switchLanguageNotice,
       });
-      // TODO: Trigger actual AI request with new language when screenshot flow is wired
+
+      try {
+        await regenerateWithLanguage(language);
+      } catch (error) {
+        const message = errorMessage(
+          error,
+          'Failed to regenerate with new language',
+        );
+        setAiError(message);
+        setState((current) => ({
+          ...current,
+          aiResultState: 'failed',
+          trayStatus: 'failed',
+        }));
+        setNotice({
+          tone: 'error',
+          text: message,
+        });
+      }
     },
-    [typewriter, messages.resultPanel.switchLanguageNotice],
+    [typewriter, messages.resultPanel.switchLanguageNotice, errorMessage],
   );
 
   const loadHistory = useCallback(async () => {

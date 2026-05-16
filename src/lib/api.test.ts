@@ -45,6 +45,7 @@ describe('Tauri API wrappers', () => {
       'toggle_main_window',
       'set_tray_status',
       'send_ai_request',
+      'regenerate_with_language',
       'clear_cache',
       'list_history',
       'delete_history_entry',

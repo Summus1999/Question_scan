@@ -2,8 +2,10 @@ use crate::errors::{AppError, AppResult};
 use crate::history::{HistoryEntry, HistoryStore};
 use crate::provider::{build_openai_multimodal_request, OpenAiImageInput};
 use crate::runtime::RuntimeStore;
+use crate::session::SessionContext;
+use crate::language::LanguageId;
 use crate::settings::{AppSettings, AppSnapshot, SettingsStore};
-use crate::{shortcuts, streaming, tray};
+use crate::{prompts, shortcuts, streaming, tray};
 use tauri::{AppHandle, Manager, State};
 
 /// Returns the full state payload consumed by the React shell during startup and reload.
@@ -138,6 +140,7 @@ pub(crate) fn window_visible(app: &AppHandle) -> AppResult<bool> {
 pub async fn send_ai_request(
     app: AppHandle,
     store: State<'_, SettingsStore>,
+    session: State<'_, SessionContext>,
     instruction: String,
     image_bytes: Vec<u8>,
     image_mime_type: String,
@@ -148,6 +151,19 @@ pub async fn send_ai_request(
             reason: error.to_string(),
         }
     })?;
+
+    // Save session data for potential language switching / regeneration.
+    // Extract recognized title and text from the instruction for later reuse.
+    let (recognized_title, recognized_text) = extract_recognition_from_instruction(&instruction);
+    let language = map_settings_language_to_language_module(settings.default_language);
+    session.save_request_data(
+        image_bytes.clone(),
+        image_mime_type.clone(),
+        recognized_title.as_deref(),
+        recognized_text.as_deref(),
+        settings.platform_format,
+        language,
+    );
 
     let request = build_openai_multimodal_request(
         &config,
@@ -166,6 +182,110 @@ pub async fn send_ai_request(
     });
 
     Ok(())
+}
+
+/// Regenerates the AI solution using the same cropped image and recognized text
+/// but with a different programming language.
+/// Streaming or non-streaming results are delivered via `question-scan:ai-stream-event`.
+#[tauri::command]
+pub async fn regenerate_with_language(
+    app: AppHandle,
+    store: State<'_, SettingsStore>,
+    session: State<'_, SessionContext>,
+    language: LanguageId,
+) -> AppResult<()> {
+    if !session.can_regenerate() {
+        return Err(AppError::AiRequestFailed {
+            code: "noSessionData".to_string(),
+            message: "No previous screenshot data available. Please capture a screenshot first."
+                .to_string(),
+        });
+    }
+
+    let settings = store.current();
+    let config = crate::provider::validate_provider_request_config(&settings).map_err(|error| {
+        AppError::ProviderConfigurationInvalid {
+            reason: error.to_string(),
+        }
+    })?;
+
+    let image_bytes = session
+        .image_bytes()
+        .expect("checked by can_regenerate");
+    let image_mime_type = session
+        .image_mime_type()
+        .expect("checked by can_regenerate");
+    let platform = session.platform_format().unwrap_or(settings.platform_format);
+    let title = session.recognized_title();
+    let text = session.recognized_text();
+
+    let instruction = prompts::build_solution_prompt(
+        language,
+        platform,
+        title.as_deref(),
+        text.as_deref(),
+    );
+
+    // Update the session with the new language for future regenerations.
+    session.save_request_data(
+        image_bytes.clone(),
+        image_mime_type.clone(),
+        title.as_deref(),
+        text.as_deref(),
+        platform,
+        language,
+    );
+
+    let request = build_openai_multimodal_request(
+        &config,
+        instruction,
+        OpenAiImageInput::new(image_mime_type, image_bytes),
+    )
+    .map_err(|error| AppError::ProviderConfigurationInvalid {
+        reason: error.to_string(),
+    })?;
+
+    // Spawn the request so the command returns immediately.
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = streaming::send_openai_request(app, request).await {
+            tracing::error!(%error, "AI request failed during language regeneration");
+        }
+    });
+
+    Ok(())
+}
+
+/// Extracts recognized title and text from a solution prompt by looking for
+/// the standard prompt sections. This is a best-effort parse for session storage.
+fn extract_recognition_from_instruction(instruction: &str) -> (Option<String>, Option<String>) {
+    let title = instruction
+        .lines()
+        .find(|line| line.starts_with("The user identified the problem title as: "))
+        .map(|line| line.trim_start_matches("The user identified the problem title as: ").to_string());
+
+    let text = instruction
+        .lines()
+        .find(|line| line.starts_with("The user also extracted the following text from the image: "))
+        .map(|line| line.trim_start_matches("The user also extracted the following text from the image: ").to_string());
+
+    (title, text)
+}
+
+/// Maps the settings module's LanguageId to the language module's LanguageId.
+/// Both enums have identical variants, so this is a straightforward conversion.
+fn map_settings_language_to_language_module(
+    id: crate::settings::LanguageId,
+) -> crate::language::LanguageId {
+    match id {
+        crate::settings::LanguageId::Cpp17 => crate::language::LanguageId::Cpp17,
+        crate::settings::LanguageId::Cpp20 => crate::language::LanguageId::Cpp20,
+        crate::settings::LanguageId::Python => crate::language::LanguageId::Python,
+        crate::settings::LanguageId::Java => crate::language::LanguageId::Java,
+        crate::settings::LanguageId::JavaScript => crate::language::LanguageId::JavaScript,
+        crate::settings::LanguageId::TypeScript => crate::language::LanguageId::TypeScript,
+        crate::settings::LanguageId::Go => crate::language::LanguageId::Go,
+        crate::settings::LanguageId::Rust => crate::language::LanguageId::Rust,
+    }
 }
 
 /// Deletes all orphaned temporary images from the system temp directory.
@@ -252,5 +372,85 @@ mod tests {
         let _ = std::fs::remove_dir_all(&temp_dir);
 
         assert!(clear_cache().is_ok());
+    }
+
+    #[test]
+    fn extract_recognition_from_instruction_parses_title_and_text() {
+        let instruction = r#"You are an algorithm problem solver.
+
+The user identified the problem title as: Two Sum
+The user also extracted the following text from the image: Find two numbers that add up to the target.
+
+Your response MUST follow this exact structure."#;
+
+        let (title, text) = extract_recognition_from_instruction(instruction);
+
+        assert_eq!(title, Some("Two Sum".to_string()));
+        assert_eq!(
+            text,
+            Some("Find two numbers that add up to the target.".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_recognition_from_instruction_returns_none_when_missing() {
+        let instruction = "You are an algorithm problem solver. No recognition data here.";
+
+        let (title, text) = extract_recognition_from_instruction(instruction);
+
+        assert_eq!(title, None);
+        assert_eq!(text, None);
+    }
+
+    #[test]
+    fn extract_recognition_from_instruction_parses_partial_data() {
+        let instruction = r#"You are an algorithm problem solver.
+
+The user identified the problem title as: Longest Substring
+
+Your response MUST follow this exact structure."#;
+
+        let (title, text) = extract_recognition_from_instruction(instruction);
+
+        assert_eq!(title, Some("Longest Substring".to_string()));
+        assert_eq!(text, None);
+    }
+
+    #[test]
+    fn map_settings_language_to_language_module_converts_all_variants() {
+        use crate::settings::LanguageId as SettingsLanguageId;
+
+        assert_eq!(
+            map_settings_language_to_language_module(SettingsLanguageId::Cpp17),
+            crate::language::LanguageId::Cpp17
+        );
+        assert_eq!(
+            map_settings_language_to_language_module(SettingsLanguageId::Cpp20),
+            crate::language::LanguageId::Cpp20
+        );
+        assert_eq!(
+            map_settings_language_to_language_module(SettingsLanguageId::Python),
+            crate::language::LanguageId::Python
+        );
+        assert_eq!(
+            map_settings_language_to_language_module(SettingsLanguageId::Java),
+            crate::language::LanguageId::Java
+        );
+        assert_eq!(
+            map_settings_language_to_language_module(SettingsLanguageId::JavaScript),
+            crate::language::LanguageId::JavaScript
+        );
+        assert_eq!(
+            map_settings_language_to_language_module(SettingsLanguageId::TypeScript),
+            crate::language::LanguageId::TypeScript
+        );
+        assert_eq!(
+            map_settings_language_to_language_module(SettingsLanguageId::Go),
+            crate::language::LanguageId::Go
+        );
+        assert_eq!(
+            map_settings_language_to_language_module(SettingsLanguageId::Rust),
+            crate::language::LanguageId::Rust
+        );
     }
 }
