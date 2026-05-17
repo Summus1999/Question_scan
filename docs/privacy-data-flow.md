@@ -4,11 +4,13 @@ This document explains how Question Scan handles user data, screenshots, and AI 
 
 ## Overview
 
-Question Scan is a local desktop application. By default, it does not save full screenshots, does not upload data to any server other than the user-configured AI provider, and keeps all history stored locally on the user's machine.
+Question Scan is a local desktop application. By default, it does not save full
+screenshots, does not upload data to any server other than the user-configured
+AI provider, and keeps all history stored locally on the user's machine.
 
 ## Data Flow
 
-```
+```text
 User presses shortcut
         |
         v
@@ -98,7 +100,7 @@ User presses shortcut
 ## File Locations
 
 | File | Location | Purpose |
-|------|----------|---------|
+| --- | --- | --- |
 | Settings | `%APPDATA%/com.questionscan.desktop/settings.json` | User preferences |
 | History | `%APPDATA%/com.questionscan.desktop/history.json` | Saved history entries (if enabled) |
 | Temp images | `%TEMP%/question-scan/` | Temporary screenshots (auto-deleted) |
@@ -106,11 +108,13 @@ User presses shortcut
 ## Compliance with Product Scope
 
 Question Scan is designed for:
+
 - Authorized practice and self-test environments
 - Open problem platforms
 - Personal algorithm workflows
 
 It explicitly does not support:
+
 - Covert use in proctored exams
 - Detection evasion
 - Automatic submission to third-party platforms

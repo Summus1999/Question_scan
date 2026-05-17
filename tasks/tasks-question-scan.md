@@ -1,3 +1,5 @@
+# Question Scan 任务清单
+
 ## 相关文件
 
 - `package.json` - 前端脚本、依赖和 Tauri 命令入口。
@@ -277,8 +279,8 @@
   - [x] 9.5 运行前端单元测试。
   - [x] 9.6 运行 Rust 单元测试。
   - [ ] 9.7 按 PRD 验收条件做一次完整的手动检查。
-      - 阻塞：当前 shell 环境无法运行 GUI 做交互式手动验证。所有 PRD 验收项的代码实现和单元测试均已通过（前端 48 测试、Rust 135 测试）。真实模型端到端验证（5.10）同样依赖 GUI 环境。
+    - 阻塞：当前 shell 环境无法运行 GUI 做交互式手动验证。所有 PRD 验收项的代码实现和单元测试均已通过（前端 48 测试、Rust 135 测试）。真实模型端到端验证（5.10）同样依赖 GUI 环境。
   - [x] 9.8 在 README 里记录已知限制和后续版本方向。
     - 验证：README.md 中新增 "已知限制与后续方向" 章节，列出 4 条当前限制和 5 个后续方向。
   - [ ] 9.9 在验证通过后，为第一版 MVP 做 tag 或发布准备。
-      - 阻塞：依赖 9.7 手动检查完成。安装包已生成（`src-tauri/target/release/bundle/nsis/Question Scan_0.1.0_x64-setup.exe`，3.87 MB）。
+    - 阻塞：依赖 9.7 手动检查完成。安装包已生成（`src-tauri/target/release/bundle/nsis/Question Scan_0.1.0_x64-setup.exe`，3.87 MB）。
