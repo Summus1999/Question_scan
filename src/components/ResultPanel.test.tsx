@@ -1,7 +1,14 @@
+/**
+ * ResultPanel 组件测试。
+ *
+ * 覆盖：空闲状态、流式/加载状态、完成状态、失败状态、
+ *       操作按钮显隐、复制/清空/重新生成/切换语言交互。
+ */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ResultPanel } from './ResultPanel';
 
+/** 默认消息文本配置，用于测试渲染。 */
 const defaultMessages = {
   title: 'Result',
   idleHint: 'Press shortcut to capture',
@@ -22,6 +29,7 @@ const defaultMessages = {
   resultCleared: 'Result cleared',
 };
 
+/** 测试辅助函数：渲染 ResultPanel 并填充默认 props。 */
 function renderPanel(props: Partial<Parameters<typeof ResultPanel>[0]> = {}) {
   const defaults: Parameters<typeof ResultPanel>[0] = {
     state: 'idle',
@@ -41,6 +49,7 @@ function renderPanel(props: Partial<Parameters<typeof ResultPanel>[0]> = {}) {
 }
 
 describe('ResultPanel', () => {
+  /** 空闲状态下显示空状态提示文案。 */
   it('shows idle hint when state is idle', () => {
     renderPanel({ state: 'idle' });
 
@@ -49,6 +58,7 @@ describe('ResultPanel', () => {
     expect(emptyState).toHaveTextContent('Press shortcut to capture');
   });
 
+  /** 流式状态下显示生成中文案和已输出内容。 */
   it('shows generating status during streaming', () => {
     renderPanel({ state: 'streaming', displayedText: 'partial output' });
 
@@ -56,6 +66,7 @@ describe('ResultPanel', () => {
     expect(screen.getByText('partial output')).toBeInTheDocument();
   });
 
+  /** 完成状态下显示完成状态标识。 */
   it('shows complete status when done', () => {
     renderPanel({
       state: 'complete',
@@ -66,6 +77,7 @@ describe('ResultPanel', () => {
     expect(screen.getByText('Complete')).toBeInTheDocument();
   });
 
+  /** 失败状态下显示错误信息和失败标识。 */
   it('shows error message when state is failed', () => {
     renderPanel({
       state: 'failed',
@@ -76,6 +88,7 @@ describe('ResultPanel', () => {
     expect(screen.getByText('API key invalid')).toBeInTheDocument();
   });
 
+  /** 有内容时显示复制代码、复制全文和清空按钮。 */
   it('shows action buttons when content is available', () => {
     renderPanel({
       state: 'complete',
@@ -92,6 +105,7 @@ describe('ResultPanel', () => {
     expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
   });
 
+  /** 空闲状态下隐藏操作按钮。 */
   it('hides action buttons when idle', () => {
     renderPanel({ state: 'idle' });
 
@@ -100,6 +114,7 @@ describe('ResultPanel', () => {
     ).not.toBeInTheDocument();
   });
 
+  /** 点击复制代码按钮触发 onCopyCode 回调。 */
   it('calls onCopyCode when copy code button is clicked', () => {
     const onCopyCode = vi.fn();
     renderPanel({
@@ -113,6 +128,7 @@ describe('ResultPanel', () => {
     expect(onCopyCode).toHaveBeenCalledTimes(1);
   });
 
+  /** 点击复制全文按钮触发 onCopyFullAnswer 回调。 */
   it('calls onCopyFullAnswer when copy full answer button is clicked', () => {
     const onCopyFullAnswer = vi.fn();
     renderPanel({
@@ -126,6 +142,7 @@ describe('ResultPanel', () => {
     expect(onCopyFullAnswer).toHaveBeenCalledTimes(1);
   });
 
+  /** 点击清空按钮触发 onClearResult 回调。 */
   it('calls onClearResult when clear button is clicked', () => {
     const onClearResult = vi.fn();
     renderPanel({
@@ -139,6 +156,7 @@ describe('ResultPanel', () => {
     expect(onClearResult).toHaveBeenCalledTimes(1);
   });
 
+  /** 点击重新生成按钮触发 onRegenerate 回调。 */
   it('calls onRegenerate when regenerate button is clicked', () => {
     const onRegenerate = vi.fn();
     renderPanel({
@@ -152,6 +170,7 @@ describe('ResultPanel', () => {
     expect(onRegenerate).toHaveBeenCalledTimes(1);
   });
 
+  /** 点击切换语言按钮弹出语言选择菜单。 */
   it('shows language switch menu when switch language is clicked', () => {
     const onSwitchLanguage = vi.fn();
     renderPanel({
@@ -167,6 +186,7 @@ describe('ResultPanel', () => {
     expect(screen.getByText('Java')).toBeInTheDocument();
   });
 
+  /** 选择语言后触发 onSwitchLanguage 回调并传入对应语言 ID。 */
   it('calls onSwitchLanguage when a language is selected', () => {
     const onSwitchLanguage = vi.fn();
     renderPanel({
@@ -182,6 +202,7 @@ describe('ResultPanel', () => {
     expect(onSwitchLanguage).toHaveBeenCalledWith('python');
   });
 
+  /** 失败状态下显示重新生成按钮。 */
   it('shows regenerate button for failed state', () => {
     renderPanel({
       state: 'failed',

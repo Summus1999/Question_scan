@@ -1,4 +1,4 @@
-# Question Scan MVP 手动验证清单
+﻿# Question Scan MVP 手动验证清单
 
 > 验证环境：Windows 桌面  
 > 验证命令：`npm run tauri dev`（开发模式）或安装包运行  

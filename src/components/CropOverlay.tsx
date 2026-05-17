@@ -75,7 +75,6 @@ function buildSelection(start: Point, end: Point): CropSelectionRect | null {
  * 当 active 为 true 时，覆盖整个视口，用户可通过拖拽绘制选择矩形。
  * 支持：拖拽绘制、取消选择、重试自动识别、确认选择。
  */
-// Owns the manual fallback selection layer that sits above the shell while the user drags.
 export function CropOverlay({
   active,
   title,

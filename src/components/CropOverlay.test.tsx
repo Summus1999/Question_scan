@@ -1,9 +1,16 @@
+/**
+ * CropOverlay 组件测试。
+ *
+ * 覆盖：inactive 渲染、拖拽归一化、视口边界限制、pointer cancel 清空、
+ *       取消/重试动作、确认裁剪条件。
+ */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CropSelectionRect } from '../lib/types';
 import { CropOverlay } from './CropOverlay';
 
+/** 测试辅助组件：管理选区状态，模拟真实使用场景。 */
 function CropOverlayHarness({
   onSelectionComplete,
   onCancel = vi.fn(),
@@ -39,6 +46,7 @@ function CropOverlayHarness({
 }
 
 describe('CropOverlay', () => {
+  /** 非激活状态下不渲染任何 DOM 节点。 */
   it('does not render while inactive', () => {
     const { container } = render(
       <CropOverlay
@@ -62,6 +70,7 @@ describe('CropOverlay', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  /** 拖拽操作应归一化为正向矩形，并触发 onSelectionComplete 回调。 */
   it('normalizes a drag into a visible crop selection', () => {
     const onSelectionComplete = vi.fn();
     render(<CropOverlayHarness onSelectionComplete={onSelectionComplete} />);
@@ -95,6 +104,7 @@ describe('CropOverlay', () => {
     });
   });
 
+  /** 超出视口的坐标应被限制在视口边界内。 */
   it('clamps drag coordinates to the viewport bounds', () => {
     const onSelectionComplete = vi.fn();
     render(<CropOverlayHarness onSelectionComplete={onSelectionComplete} />);
@@ -132,6 +142,7 @@ describe('CropOverlay', () => {
     });
   });
 
+  /** pointer cancel 事件应清空当前选区并回调 null。 */
   it('clears an in-progress selection when pointer capture is canceled', () => {
     const onSelectionComplete = vi.fn();
     render(<CropOverlayHarness onSelectionComplete={onSelectionComplete} />);
@@ -161,6 +172,7 @@ describe('CropOverlay', () => {
     expect(screen.getByText('Drag to start a selection')).toBeInTheDocument();
   });
 
+  /** 取消和重试按钮应正确触发对应回调。 */
   it('exposes cancel and retry actions while selection is active', () => {
     const onCancel = vi.fn();
     const onRetryRecognition = vi.fn();
@@ -182,6 +194,7 @@ describe('CropOverlay', () => {
     expect(onRetryRecognition).toHaveBeenCalledTimes(1);
   });
 
+  /** 未选区时确认按钮禁用，选区后点击触发 onConfirmSelection。 */
   it('requires a selected region before confirming the crop', () => {
     const onConfirmSelection = vi.fn();
     render(

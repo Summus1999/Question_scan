@@ -9,10 +9,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OutputSpeed } from '../lib/types';
 
 /** 速度配置：每次 tick 显示的字符数。 */
-// ------------------------------------------------------------------------------
-// Speed configuration: characters per reveal tick
-// ------------------------------------------------------------------------------
-
 const SPEED_CONFIG: Record<Exclude<OutputSpeed, 'custom'>, number> = {
   fast: 48, // ~48 chars per tick
   normal: 24, // ~24 chars per tick
@@ -34,10 +30,6 @@ function getCharsPerTick(
 }
 
 /** useTypewriter Hook 选项和返回值接口。 */
-// ------------------------------------------------------------------------------
-// useTypewriter hook
-// ------------------------------------------------------------------------------
-
 export interface UseTypewriterOptions {
   speed: OutputSpeed;
   customCharactersPerSecond: number;
