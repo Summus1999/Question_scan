@@ -109,15 +109,15 @@ prd/prd-question-scan.md
 
 1. 运行前端测试，如果前端已配置：
 
-```bash
-npm test -- --run
-```
+   ```bash
+   npm test -- --run
+   ```
 
 2. 如果存在 Rust 代码，再运行 Rust 测试：
 
-```bash
-cargo test
-```
+   ```bash
+   cargo test
+   ```
 
 3. 如果项目里存在 E2E 命令，就运行 E2E。
 
@@ -127,10 +127,10 @@ cargo test
 
 6. 检查 diff：
 
-```bash
-git diff --check
-git status --short
-```
+   ```bash
+   git diff --check
+   git status --short
+   ```
 
 7. 只暂存和当前任务有关的文件。
 

@@ -22,7 +22,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import type { AiResultState, LanguageId } from '../lib/types';
 import { LANGUAGE_OPTIONS } from '../lib/types';
 
@@ -120,7 +120,7 @@ function CodeBlock({
 }
 
 /** Markdown 组件覆盖：自定义代码块和内联代码的渲染行为。 */
-const markdownComponents = {
+const markdownComponents: Components = {
   code({
     inline,
     className,
@@ -129,11 +129,11 @@ const markdownComponents = {
   }: {
     inline?: boolean;
     className?: string;
-    children: ReactNode;
+    children?: ReactNode;
   }) {
     const match = /language-(\w+)/.exec(className || '');
     const language = match?.[1] ?? 'text';
-    const codeText = String(children).replace(/\n$/, '');
+    const codeText = String(children ?? '').replace(/\n$/, '');
 
     if (inline) {
       return (
@@ -148,7 +148,7 @@ const markdownComponents = {
 
     return <CodeBlock language={language}>{codeText}</CodeBlock>;
   },
-  pre({ children }: { children: ReactNode }) {
+  pre({ children }: { children?: ReactNode }) {
     // Let the code component handle its own pre wrapper
     return <>{children}</>;
   },
