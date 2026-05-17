@@ -501,6 +501,7 @@ function App() {
     [typewriter, messages.resultPanel.switchLanguageNotice, errorMessage],
   );
 
+  /** 加载历史记录列表。如果用户关闭了历史保存，则清空列表。 */
   const loadHistory = useCallback(async () => {
     if (!draft.saveHistory) {
       setHistoryEntries([]);
@@ -518,6 +519,7 @@ function App() {
     }
   }, [draft.saveHistory, errorMessage]);
 
+  /** 清空系统临时缓存。 */
   const handleClearCache = useCallback(async () => {
     try {
       await clearCache();
@@ -531,6 +533,7 @@ function App() {
     }
   }, [errorMessage, messages.actions.clearCacheNotice]);
 
+  /** 删除单条历史记录。 */
   const handleDeleteHistoryEntry = useCallback(
     async (id: string) => {
       try {
@@ -550,6 +553,7 @@ function App() {
     [errorMessage, messages.actions.deleteHistoryEntryNotice],
   );
 
+  /** 清空全部历史记录。 */
   const handleClearHistory = useCallback(async () => {
     try {
       await clearHistory();
@@ -564,6 +568,7 @@ function App() {
     }
   }, [errorMessage, messages.actions.clearHistoryNotice]);
 
+  /** 判断当前设置草稿是否与已保存状态有差异。 */
   const isDirty = useMemo(
     () => JSON.stringify(draft) !== JSON.stringify(state.settings),
     [draft, state.settings],
@@ -656,6 +661,7 @@ function App() {
     [applySnapshot, errorMessage, messages.notices.windowActionFailed],
   );
 
+  /** 输出速度选项列表，标签通过 i18n 动态替换。 */
   const outputSpeedOptions = useMemo(
     () =>
       OUTPUT_SPEED_OPTIONS.map((option) => ({
@@ -665,6 +671,7 @@ function App() {
     [messages],
   );
 
+  /** 当前选中的输出速度标签。 */
   const currentSpeedLabel =
     messages.outputSpeed[draft.outputSpeed] ?? messages.outputSpeed.normal;
 

@@ -1,3 +1,9 @@
+/**
+ * 国际化文案模块
+ *
+ * 职责：提供中英文两套完整的界面文案，所有 UI 显示文本都从这里获取。
+ * 使用 getMessages(locale) 获取当前语言对应的文案对象。
+ */
 import type {
   AiResultState,
   AppStatus,
@@ -480,6 +486,7 @@ export const APP_MESSAGES: Record<UiLocale, AppMessages> = {
   enUs,
 };
 
+/** 根据语言标识获取对应的文案对象，未知语言回退到中文。 */
 // Returns a complete message set and falls back to Chinese for unknown persisted values.
 export function getMessages(locale: UiLocale): AppMessages {
   return APP_MESSAGES[locale] ?? APP_MESSAGES.zhCn;
