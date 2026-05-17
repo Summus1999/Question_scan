@@ -5,7 +5,6 @@
  * 包含：屏幕捕获、多显示器坐标统一、临时文件管理、AI 请求前的图片压缩。
  * 这是后续裁剪和 AI 请求链路的稳定基础。
  */
-
 use std::{
     fs,
     io::Cursor,
@@ -188,7 +187,7 @@ pub fn capture_screens(
     let desktop_layout = DesktopLayout::from_screens(&screens)
         .ok_or_else(|| "No screens are available to capture".to_string())?;
     let selected_screens = select_screens(&screens, selection, anchor);
-    let capture_root = ensure_screenshot_temp_root(&std::env::temp_dir())?;
+    let capture_root = ensure_screenshot_temp_root(std::env::temp_dir())?;
     let captured_at = SystemTime::now();
 
     selected_screens

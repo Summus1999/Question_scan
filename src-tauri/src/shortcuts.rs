@@ -224,7 +224,7 @@ mod tests {
     fn rejects_empty_shortcut_strings() {
         let error = parse_shortcut("").expect_err("empty shortcut should fail");
 
-        assert_eq!(error.to_string().contains("<empty>"), true);
+        assert!(error.to_string().contains("<empty>"));
     }
 
     #[test]

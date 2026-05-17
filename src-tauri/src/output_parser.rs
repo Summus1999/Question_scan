@@ -5,7 +5,6 @@
  * 策略1：查找 "完整代码" 章节标题，提取到下一章节之间的内容。
  * 策略2：回退到提取第一个 fenced code block（```lang ... ```）。
  */
-
 /** 从 AI 解法响应中提取主代码块。 */
 /// Extracts the primary code block from an AI solution response.
 pub fn extract_main_code_block(text: &str) -> Option<String> {
