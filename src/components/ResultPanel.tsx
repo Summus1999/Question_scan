@@ -7,8 +7,12 @@
  */
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Copy,
+  Database,
   Eraser,
+  EyeOff,
   FileCode2,
   Languages,
   Loader2,
@@ -23,7 +27,13 @@ import {
   useState,
 } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
-import type { AiResultState, LanguageId } from '../lib/types';
+import type {
+  AiResultState,
+  LanguageId,
+  RagPromptContextItem,
+  RagPromptContextKind,
+  RagPromptContextSourceType,
+} from '../lib/types';
 import { LANGUAGE_OPTIONS } from '../lib/types';
 
 /**
@@ -48,6 +58,22 @@ export interface ResultPanelMessages {
   codeCopied: string;
   answerCopied: string;
   resultCleared: string;
+  ragContextTitle: string;
+  ragContextSubtitle: string;
+  ragContextUsed: string;
+  ragContextSkipped: string;
+  ragContextScore: string;
+  ragContextTokens: string;
+  ragContextReason: string;
+  ragContextExpand: string;
+  ragContextCollapse: string;
+  ragContextIgnore: string;
+  ragContextIgnoredNotice: string;
+  ragContextTags: string;
+  ragContextAlgorithmTags: string;
+  ragContextNoVisibleItems: string;
+  ragContextSourceLabels: Record<RagPromptContextSourceType, string>;
+  ragContextKindLabels: Record<RagPromptContextKind, string>;
 }
 
 export interface ResultPanelProps {
@@ -56,6 +82,7 @@ export interface ResultPanelProps {
   displayedText: string;
   error: string | null;
   currentLanguage: LanguageId;
+  ragContextItems?: RagPromptContextItem[];
   messages: ResultPanelMessages;
   onCopyCode: () => void;
   onCopyFullAnswer: () => void;
@@ -328,6 +355,242 @@ function ToolbarButton({
   );
 }
 
+/** RAG 上下文摘要区：展示本次召回来源、置信度、使用状态，并支持展开或忽略。 */
+function RagContextSummary({
+  items,
+  messages,
+}: {
+  items: RagPromptContextItem[];
+  messages: ResultPanelMessages;
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  const itemSignature = items.map((item) => item.id).join('|');
+
+  return (
+    <RagContextSummaryContent
+      key={itemSignature}
+      items={items}
+      messages={messages}
+    />
+  );
+}
+
+function RagContextSummaryContent({
+  items,
+  messages,
+}: {
+  items: RagPromptContextItem[];
+  messages: ResultPanelMessages;
+}) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [ignoredIds, setIgnoredIds] = useState<Set<string>>(new Set());
+
+  const visibleItems = items.filter((item) => !ignoredIds.has(item.id));
+  const usedCount = visibleItems.filter((item) => item.usedInPrompt).length;
+  const skippedCount = visibleItems.length - usedCount;
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const ignoreItem = (id: string) => {
+    setIgnoredIds((current) => {
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <section
+      data-testid="rag-context-summary"
+      className="border-b border-slate-200 bg-slate-50/70 px-4 py-3"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <Database className="h-4 w-4 text-slate-500" />
+            <span>{messages.ragContextTitle}</span>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            {messages.ragContextSubtitle}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 text-xs">
+          <StatusBadge tone="used">
+            {messages.ragContextUsed}: {usedCount}
+          </StatusBadge>
+          <StatusBadge tone="skipped">
+            {messages.ragContextSkipped}: {skippedCount}
+          </StatusBadge>
+        </div>
+      </div>
+
+      {visibleItems.length === 0 ? (
+        <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+          {messages.ragContextNoVisibleItems}
+        </div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {visibleItems.map((item) => {
+            const expanded = expandedIds.has(item.id);
+            return (
+              <div
+                key={item.id}
+                data-testid={`rag-context-item-${item.id}`}
+                className="rounded-md border border-slate-200 bg-white px-3 py-2"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                        {sourceLabel(item, messages)}
+                      </span>
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                        {messages.ragContextKindLabels[item.kind]}
+                      </span>
+                      <StatusBadge
+                        tone={item.usedInPrompt ? 'used' : 'skipped'}
+                      >
+                        {item.usedInPrompt
+                          ? messages.ragContextUsed
+                          : messages.ragContextSkipped}
+                      </StatusBadge>
+                    </div>
+                    <h4 className="mt-1 truncate text-sm font-medium text-slate-900">
+                      {item.title}
+                    </h4>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {messages.ragContextScore}: {formatScore(item.score)}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                      onClick={() => toggleExpanded(item.id)}
+                      aria-label={`${expanded ? messages.ragContextCollapse : messages.ragContextExpand} ${item.title}`}
+                    >
+                      {expanded ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                      {expanded
+                        ? messages.ragContextCollapse
+                        : messages.ragContextExpand}
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                      onClick={() => ignoreItem(item.id)}
+                      aria-label={`${messages.ragContextIgnore} ${item.title}`}
+                    >
+                      <EyeOff className="h-3.5 w-3.5" />
+                      {messages.ragContextIgnore}
+                    </button>
+                  </div>
+                </div>
+
+                {expanded && (
+                  <div className="mt-3 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-600">
+                    <p className="whitespace-pre-line">{item.snippet}</p>
+                    <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {item.algorithmTags.length > 0 && (
+                        <ContextDetail
+                          label={messages.ragContextAlgorithmTags}
+                          value={item.algorithmTags.join(', ')}
+                        />
+                      )}
+                      {item.tags.length > 0 && (
+                        <ContextDetail
+                          label={messages.ragContextTags}
+                          value={item.tags.join(', ')}
+                        />
+                      )}
+                      <ContextDetail
+                        label={messages.ragContextTokens}
+                        value={String(item.tokenEstimate)}
+                      />
+                      <ContextDetail
+                        label={messages.ragContextReason}
+                        value={item.skippedReason ?? item.reason}
+                      />
+                    </dl>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {ignoredIds.size > 0 && (
+        <p className="mt-2 text-xs text-slate-500">
+          {messages.ragContextIgnoredNotice}: {ignoredIds.size}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ContextDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="font-medium text-slate-500">{label}</dt>
+      <dd className="mt-0.5 break-words text-slate-700">{value}</dd>
+    </div>
+  );
+}
+
+function StatusBadge({
+  tone,
+  children,
+}: {
+  tone: 'used' | 'skipped';
+  children: ReactNode;
+}) {
+  const className =
+    tone === 'used'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : 'border-amber-200 bg-amber-50 text-amber-700';
+
+  return (
+    <span
+      className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function sourceLabel(
+  item: RagPromptContextItem,
+  messages: ResultPanelMessages,
+) {
+  if (item.kind === 'template') {
+    return messages.ragContextSourceLabels.codeTemplate;
+  }
+
+  return messages.ragContextSourceLabels[item.sourceType];
+}
+
+function formatScore(score: number) {
+  return `${Math.round(Math.min(Math.max(score, 0), 1) * 100)}%`;
+}
+
 /** 结果面板主组件：整合状态、内容和操作工具栏。 */
 export function ResultPanel({
   state,
@@ -335,6 +598,7 @@ export function ResultPanel({
   displayedText,
   error,
   currentLanguage,
+  ragContextItems = [],
   messages,
   onCopyCode,
   onCopyFullAnswer,
@@ -355,6 +619,7 @@ export function ResultPanel({
   const showEmpty = state === 'idle';
   const showError = state === 'failed' && error;
   const showContent = state === 'streaming' || state === 'complete';
+  const showRagContext = ragContextItems.length > 0 && state !== 'idle';
 
   return (
     <div className="flex h-full flex-col">
@@ -378,6 +643,10 @@ export function ResultPanel({
         ref={scrollRef}
         className="mt-3 flex-1 overflow-auto rounded-md border border-slate-200 bg-white"
       >
+        {showRagContext && (
+          <RagContextSummary items={ragContextItems} messages={messages} />
+        )}
+
         {showEmpty && (
           <div
             data-testid="result-empty-state"

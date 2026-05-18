@@ -7,6 +7,7 @@
  */
 use crate::errors::{AppError, AppResult};
 use crate::provider::PreparedOpenAiMultimodalRequest;
+use crate::rag_prompt_context::RagPromptContextItem;
 use serde::Serialize;
 use std::pin::Pin;
 use tauri::Emitter;
@@ -19,6 +20,14 @@ pub enum AiStreamEvent {
     /** 从模型接收到的一段内容。 */
     /// A content chunk arrived from the model.
     Chunk { content: String },
+    /** 本次请求使用或跳过的本地 RAG 上下文。 */
+    /// Local RAG context items used or skipped for the current request.
+    RagContext {
+        items: Vec<RagPromptContextItem>,
+        used_item_count: u32,
+        token_estimate: u32,
+        skipped_reason: Option<String>,
+    },
     /** 流正常结束。 */
     /// The stream finished normally.
     Done,

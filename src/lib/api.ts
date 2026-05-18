@@ -11,6 +11,17 @@ import type {
   AppSettings,
   AppState,
   HistoryEntry,
+  ProblemIndexEntry,
+  RagImportedDocument,
+  RagImportRequest,
+  RagIndexMaintenanceResult,
+  RagPromptContextRequest,
+  RagPromptContextResponse,
+  RagSearchRequest,
+  RagSearchResponse,
+  RagTemplateSelectionRequest,
+  RagTemplateSelectionResponse,
+  SaveHistoryEntryRequest,
   TrayStatus,
 } from './types';
 
@@ -27,8 +38,18 @@ export const BACKEND_COMMANDS = {
   regenerateWithLanguage: 'regenerate_with_language',
   clearCache: 'clear_cache',
   listHistory: 'list_history',
+  saveHistoryEntry: 'save_history_entry',
   deleteHistoryEntry: 'delete_history_entry',
   clearHistory: 'clear_history',
+  listLeetcodeProblemIndex: 'list_leetcode_problem_index',
+  importRagDocuments: 'import_rag_documents',
+  listRagImports: 'list_rag_imports',
+  deleteRagImport: 'delete_rag_import',
+  clearRagIndex: 'clear_rag_index',
+  rebuildRagIndex: 'rebuild_rag_index',
+  searchRagContext: 'search_rag_context',
+  selectRagTemplateContext: 'select_rag_template_context',
+  buildRagPromptContext: 'build_rag_prompt_context',
 } as const;
 
 /** 前端监听的后端事件名称常量。 */
@@ -90,6 +111,10 @@ type BackendCommandSpec = {
     payload: undefined;
     response: HistoryEntry[];
   };
+  [BACKEND_COMMANDS.saveHistoryEntry]: {
+    payload: { request: SaveHistoryEntryRequest };
+    response: HistoryEntry | null;
+  };
   [BACKEND_COMMANDS.deleteHistoryEntry]: {
     payload: { id: string };
     response: boolean;
@@ -97,6 +122,42 @@ type BackendCommandSpec = {
   [BACKEND_COMMANDS.clearHistory]: {
     payload: undefined;
     response: undefined;
+  };
+  [BACKEND_COMMANDS.listLeetcodeProblemIndex]: {
+    payload: undefined;
+    response: ProblemIndexEntry[];
+  };
+  [BACKEND_COMMANDS.importRagDocuments]: {
+    payload: { request: RagImportRequest };
+    response: RagImportedDocument[];
+  };
+  [BACKEND_COMMANDS.listRagImports]: {
+    payload: undefined;
+    response: RagImportedDocument[];
+  };
+  [BACKEND_COMMANDS.deleteRagImport]: {
+    payload: { id: string };
+    response: boolean;
+  };
+  [BACKEND_COMMANDS.clearRagIndex]: {
+    payload: undefined;
+    response: RagIndexMaintenanceResult;
+  };
+  [BACKEND_COMMANDS.rebuildRagIndex]: {
+    payload: undefined;
+    response: RagIndexMaintenanceResult;
+  };
+  [BACKEND_COMMANDS.searchRagContext]: {
+    payload: { request: RagSearchRequest };
+    response: RagSearchResponse;
+  };
+  [BACKEND_COMMANDS.selectRagTemplateContext]: {
+    payload: { request: RagTemplateSelectionRequest };
+    response: RagTemplateSelectionResponse;
+  };
+  [BACKEND_COMMANDS.buildRagPromptContext]: {
+    payload: { request: RagPromptContextRequest };
+    response: RagPromptContextResponse;
   };
 };
 
@@ -253,6 +314,13 @@ export function listHistory(): Promise<HistoryEntry[]> {
   return invokeBackend(BACKEND_COMMANDS.listHistory);
 }
 
+/** 保存一条历史记录，并在后端同步建立历史 RAG 可检索记录。 */
+export function saveHistoryEntry(
+  request: SaveHistoryEntryRequest,
+): Promise<HistoryEntry | null> {
+  return invokeBackend(BACKEND_COMMANDS.saveHistoryEntry, { request });
+}
+
 /** 根据 ID 删除单条历史记录。 */
 export function deleteHistoryEntry(id: string): Promise<boolean> {
   return invokeBackend(BACKEND_COMMANDS.deleteHistoryEntry, { id });
@@ -261,4 +329,57 @@ export function deleteHistoryEntry(id: string): Promise<boolean> {
 /** 清空全部历史记录。 */
 export function clearHistory(): Promise<void> {
   return invokeBackend(BACKEND_COMMANDS.clearHistory);
+}
+
+/** 获取内置 LeetCode 轻量题目索引。 */
+export function listLeetcodeProblemIndex(): Promise<ProblemIndexEntry[]> {
+  return invokeBackend(BACKEND_COMMANDS.listLeetcodeProblemIndex);
+}
+
+/** 导入用户自己的 Markdown、JSON 或 CSV RAG 资料。 */
+export function importRagDocuments(
+  request: RagImportRequest,
+): Promise<RagImportedDocument[]> {
+  return invokeBackend(BACKEND_COMMANDS.importRagDocuments, { request });
+}
+
+/** 获取未删除的用户导入资料。 */
+export function listRagImports(): Promise<RagImportedDocument[]> {
+  return invokeBackend(BACKEND_COMMANDS.listRagImports);
+}
+
+/** 删除单条用户导入资料。 */
+export function deleteRagImport(id: string): Promise<boolean> {
+  return invokeBackend(BACKEND_COMMANDS.deleteRagImport, { id });
+}
+
+/** 清除本地 RAG 索引，不删除导入原文、普通历史或内置轻量元数据。 */
+export function clearRagIndex(): Promise<RagIndexMaintenanceResult> {
+  return invokeBackend(BACKEND_COMMANDS.clearRagIndex);
+}
+
+/** 基于当前允许的 RAG 来源重建本地索引。 */
+export function rebuildRagIndex(): Promise<RagIndexMaintenanceResult> {
+  return invokeBackend(BACKEND_COMMANDS.rebuildRagIndex);
+}
+
+/** 执行本地 RAG 检索，返回 top K 相似题、笔记、模板或历史上下文。 */
+export function searchRagContext(
+  request: RagSearchRequest,
+): Promise<RagSearchResponse> {
+  return invokeBackend(BACKEND_COMMANDS.searchRagContext, { request });
+}
+
+/** 根据相似题、算法标签和默认语言选择可用解题模式与代码模板。 */
+export function selectRagTemplateContext(
+  request: RagTemplateSelectionRequest,
+): Promise<RagTemplateSelectionResponse> {
+  return invokeBackend(BACKEND_COMMANDS.selectRagTemplateContext, { request });
+}
+
+/** 构建压缩后的 RAG prompt 上下文，并返回已注入上下文的解题 prompt。 */
+export function buildRagPromptContext(
+  request: RagPromptContextRequest,
+): Promise<RagPromptContextResponse> {
+  return invokeBackend(BACKEND_COMMANDS.buildRagPromptContext, { request });
 }

@@ -10,34 +10,45 @@
 - `tsconfig.json` - TypeScript 编译配置。
 - `src/vite-env.d.ts` - Vite 环境类型声明。
 - `src/main.tsx` - React 应用入口。
-- `src/App.tsx` - 主界面外壳、路由、布局组合、手动框选覆盖层挂载和手动裁剪动作状态交接。
-- `src/App.test.tsx` - 主界面骨架、手动框选状态渲染和手动裁剪动作测试。
+- `src/App.tsx` - 主界面外壳、路由、布局组合、手动框选覆盖层挂载、手动裁剪动作状态交接、AI 完成后的可选历史入库触发、设置页本地知识增强开关、RAG 隐私控制区和结果面板 RAG 上下文文案交接。
+- `src/App.test.tsx` - 主界面骨架、手动框选状态渲染、手动裁剪动作、历史 RAG 保存触发、本地知识增强设置持久化和 RAG 隐私控制交互测试。
 - `src/components/CropOverlay.tsx` - 手动框选覆盖层，负责拖拽选区、实时显示、取消、重新自动识别和确认裁剪动作。
 - `src/components/CropOverlay.test.tsx` - 覆盖层的拖拽归一化、视口边界、取消拖拽、选区显示、inactive 渲染和动作按钮测试。
+- `src/components/ResultPanel.tsx` - 结果面板组件，负责 AI 输出状态、Markdown/代码展示、复制动作、语言切换和本次 RAG 命中上下文的展开/忽略展示。
+- `src/components/ResultPanel.test.tsx` - 结果面板测试，覆盖状态渲染、工具栏动作、语言切换和 RAG 上下文来源、置信度、展开详情、忽略行为。
 - `src/styles.css` - 全局样式和 Tailwind 入口。
-- `src/lib/types.ts` - 前端共享类型，包含设置、截图状态、识别返回结构、置信度路由、AI 输出、语言和历史记录。
-- `src/lib/types.test.ts` - 共享类型常量、选项列表、默认状态、识别返回结构和置信度路由契约的单元测试。
-- `src/lib/i18n.ts` - 中英文界面文案、状态标签和选项标签。
+- `src/lib/types.ts` - 前端共享类型，包含设置、截图状态、识别返回结构、置信度路由、AI 输出、语言、历史记录、本地知识增强设置、轻量题目索引、用户 RAG 导入资料、RAG 索引维护统计、本地 RAG 检索结果、模板选择结果和 RAG prompt 上下文注入结果。
+- `src/lib/types.test.ts` - 共享类型常量、选项列表、默认状态、本地知识增强默认设置、识别返回结构、置信度路由、轻量题目索引、用户 RAG 导入、RAG 索引维护统计、历史 RAG 保存、本地 RAG 检索、模板选择和 prompt 上下文注入契约的单元测试。
+- `src/lib/i18n.ts` - 中英文界面文案、状态标签、选项标签、设置页本地知识增强文案、数据管理/RAG 隐私控制文案和结果面板 RAG 上下文展示标签。
 - `src/lib/i18n.test.ts` - 界面语言文案覆盖和回退行为测试。
-- `src/lib/api.ts` - 对 Tauri 命令和事件的类型化封装。
-- `src/lib/api.test.ts` - Tauri 命令封装测试。
+- `src/lib/api.ts` - 对 Tauri 命令和事件的类型化封装，包含历史保存、LeetCode 轻量题目索引、用户 RAG 导入资料、清除/重建 RAG 索引、本地 RAG 检索、模板选择和 prompt 上下文注入命令。
+- `src/lib/api.test.ts` - Tauri 命令封装测试，覆盖历史保存、LeetCode 轻量题目索引、用户 RAG 导入资料、清除/重建 RAG 索引、本地 RAG 检索、模板选择和 prompt 上下文注入命令名。
 - `src/test/setup.ts` - Vitest 与 DOM 匹配器初始化。
 - `src-tauri/Cargo.toml` - Rust 依赖，包含 Tauri、托盘、设置、全局快捷键插件和日志相关能力。
 - `src-tauri/Cargo.lock` - Rust 依赖锁定文件，包含全局快捷键插件解析结果。
-- `src-tauri/build.rs` - Tauri build 脚本和自定义命令权限生成，包含托盘状态命令。
+- `src-tauri/build.rs` - Tauri build 脚本和自定义命令权限生成，包含托盘、AI、历史、历史 RAG、轻量题目索引、用户 RAG 导入、RAG 索引维护、本地 RAG 检索、模板选择和 prompt 上下文注入命令。
 - `src-tauri/tauri.conf.json` - Tauri 应用配置、权限、窗口、托盘和打包设置。
-- `src-tauri/capabilities/default.json` - Tauri 命令和插件权限，包含窗口、设置和托盘状态命令。
+- `src-tauri/capabilities/default.json` - Tauri 命令和插件权限，包含窗口、设置、托盘状态、AI、历史、历史 RAG、轻量题目索引、用户 RAG 导入、RAG 索引维护、本地 RAG 检索、模板选择和 prompt 上下文注入命令。
 - `src-tauri/icons/tray-icon.png` - 托盘图标资源。
 - `src-tauri/icons/icon.png` - 应用图标资源。
 - `src-tauri/icons/icon.ico` - Windows 应用图标资源。
-- `src-tauri/src/main.rs` - Tauri 后端入口、全局快捷键插件安装、命令注册、托盘设置、应用状态和事件串联。
-- `src-tauri/src/commands.rs` - 暴露给前端的 Tauri 命令处理器，包含设置保存、窗口显隐和托盘状态更新。
+- `src-tauri/src/main.rs` - Tauri 后端入口、全局快捷键插件安装、命令注册、托盘设置、应用状态、轻量题目索引、用户 RAG 导入、历史 RAG 存储、本地 embedding 缓存存储、RAG 索引维护、模板选择、prompt 上下文注入和事件串联。
+- `src-tauri/src/commands.rs` - 暴露给前端的 Tauri 命令处理器，包含设置保存、窗口显隐、托盘状态、AI 请求、历史、受本地知识增强设置控制的历史 RAG 入库、LeetCode 轻量索引读取、用户 RAG 导入资料管理、清除/重建 RAG 索引、本地 RAG 检索、模板选择和 prompt 上下文注入。
+- `src-tauri/src/history.rs` - 本地历史记录存储，包含历史保存开关、历史条目标签字段和旧历史记录兼容。
+- `src-tauri/src/problem_index.rs` - LeetCode 轻量题目索引类型、内置数据加载、字段校验和元数据边界测试。
+- `src-tauri/data/leetcode-lightweight-index.json` - 内置 LeetCode 轻量题目索引 seed 数据，只包含题号、标题、slug、难度、标签、题型和平台来源。
+- `src-tauri/src/rag_history.rs` - 历史 RAG 入库模块，把用户可控历史转换为可检索文档、分块和历史链接，并在删除历史时标记不可召回，也支持隐私控制里的硬清空索引。
+- `src-tauri/src/rag_imports.rs` - 用户 RAG 导入资料解析和本地 JSON 存储，支持 Markdown、JSON、CSV、重复导入更新和软删除。
+- `src-tauri/src/rag_retrieval.rs` - 本地 RAG 向量检索模块，使用确定性 local-hash embedding 生成和缓存向量，并按题目标题、题干、样例、约束、标签和语言召回 top K 相似上下文，同时支持清空、按导入资料删除和重建 embedding 缓存。
+- `src-tauri/src/rag_templates.rs` - RAG 题型和代码模板选择模块，根据相似题、算法标签、目标语言和用户导入模板推荐解题模式与可用代码模板。
+- `src-tauri/src/rag_prompt_context.rs` - RAG prompt 上下文注入模块，把相似题、历史摘要、用户笔记、解题模式和代码模板压缩为本地上下文 section，并按召回条数、最低分数和 token 预算过滤。
+- `src-tauri/src/prompts.rs` - 解题 prompt 构建模块，支持固定输出结构、识别标题/文本和可选 RAG 本地上下文 section 注入。
 - `src-tauri/src/recognition.rs` - 题目区域识别返回结构、低分辨率识别图片输入、视觉模型提示词、响应解析、边界校验、高清裁剪、置信度路由、边界框类型和序列化测试。
 - `src-tauri/src/screenshot.rs` - 屏幕截图后端封装，提供显示器枚举、当前/全部显示选择、布局坐标统一、系统临时 PNG 写盘、AI 压缩和截图元数据入口。
-- `src-tauri/src/settings.rs` - 本地设置读取、保存、校验和迁移。
+- `src-tauri/src/settings.rs` - 本地设置读取、保存、校验和迁移，包含本地知识增强、RAG 来源开关和最大召回条数默认值。
 - `src-tauri/src/provider.rs` - AI 服务商请求前配置校验，生成请求可用的服务商配置。
 - `src-tauri/src/provider_key_store.rs` - Windows Credential Locker 封装和测试用内存后端。
-- `src-tauri/src/errors.rs` - 映射到前端安全消息的后端错误类型，包含快捷键注册冲突、API Key 存储和服务商配置校验提示。
+- `src-tauri/src/errors.rs` - 映射到前端安全消息的后端错误类型，包含快捷键注册冲突、API Key 存储、服务商配置校验、轻量索引加载、RAG 导入、历史 RAG 入库和本地 RAG 检索提示。
 - `src-tauri/src/runtime.rs` - 后端运行时状态，记录托盘状态、快捷键注册状态和触发次数。
 - `src-tauri/src/shortcuts.rs` - 全局快捷键插件接入、注册、注销、触发事件和校验测试。
 - `src-tauri/src/tray.rs` - 托盘菜单、状态提示、快捷键开关、设置入口和窗口显隐动作。
@@ -45,10 +56,12 @@
 - `docs/development-workflow.md` - 固定的执行流程，包含任务、验证、提交和发布检查点。
 - `docs/developer-setup.md` - 开发环境快照、安装步骤、一键脚本说明和常见问题。
 - `docs/manual-verification-checklist.md` - MVP 手动验证清单，覆盖全部 PRD 功能需求用例。
+- `docs/rag-data-model.md` - 本地 RAG 数据模型设计，覆盖题目索引、用户资料、代码模板、历史入库、召回记录、隐私删除规则和迁移策略。
 - `tasks/tasks-question-scan.md` - MVP 任务、阶段用例、进度状态和相关文件索引。
 - `scripts/setup.ps1` - Windows 开发环境检查和依赖安装脚本。
 - `scripts/dev.ps1` - 一键启动 Tauri 开发环境的脚本。
 - `README.md` - 项目安装、开发命令、支持平台和 MVP 使用说明。
+- `prd/prd-question-scan.md` - 产品需求文档，定义 MVP 范围、RAG 增强、Agent 工作流、远端 Provider Proxy、隐私边界和验收标准。
 
 ### 说明
 
@@ -98,6 +111,51 @@
 - 用户保存设置后，界面语言会写入本地设置，重新加载应用状态时继续使用保存的语言。
 - 用户切到英文后，仍能看到和中文界面相同的设置项、按钮和运行状态，不丢失原有能力。
 - 旧版本设置文件没有界面语言字段时，后端会使用中文默认值，不因字段缺失导致设置加载失败。
+
+## 阶段 6 用例
+
+- 用户启用本地知识增强后，系统能读取 LeetCode 轻量题目索引，并且索引项只包含题号、标题、slug、难度、标签、题型和平台来源。
+- 开发者能通过后端类型确认轻量索引不包含完整题面、输入输出示例、约束正文、题解正文或任何第三方账号凭据。
+- 前端后续需要展示或检索相似题时，可以通过类型化 API 获取轻量索引列表，不需要直接读取本地文件。
+- 当内置索引文件格式错误、字段缺失或包含不允许的完整题面字段时，后端测试能够失败并阻止该数据进入索引。
+- LeetCode 轻量索引只作为元数据上下文来源，后续 prompt 注入时必须继续优先相信当前截图识别内容和用户确认内容。
+- 用户导入 Markdown 题解或笔记时，系统能从一级标题或 front matter 中提取标题、标签、语言和平台，并把原文作为用户资料保存。
+- 用户导入 JSON 或 CSV 资料时，系统能解析单条或多条题解、错题笔记、代码模板，保留来源名称、来源 URI、导入时间和更新时间。
+- 用户重新导入同一来源、同一标题和同一资料类型时，系统应更新已有资料的内容与 `updatedAt`，而不是制造重复记录。
+- 用户删除单条导入资料时，系统应提供明确删除命令，删除后默认列表不再返回该资料，后续 RAG 索引任务可以据此清理分块和 embedding。
+- 用户开启保存历史后，AI 回答完成时系统能把历史条目转为本地可检索记录，包含识别标题、题目文本、AI 输出摘要、用户备注、语言、平台、模型、标签和算法标签，但不保存完整截图。
+- 用户关闭保存历史后，AI 回答完成时系统不新增历史记录，也不新增历史 RAG 文档、分块或历史链接。
+- 用户删除单条历史或清空全部历史时，对应历史 RAG 文档和分块应被标记为不可召回，避免用户删除历史后仍能被后续检索命中。
+- 开发者能够用本地 embedding provider 为历史分块、用户导入资料和 LeetCode 轻量元数据生成向量，并把相同文本、provider 和模型的 embedding 缓存在本地 JSON 文件中。
+- 当分块文本、provider 或模型变化时，系统会重新生成 embedding；未变化时复用缓存，避免重复计算。
+- 用户触发一次 RAG 查询时，系统能把题目标题、题干、样例、约束、标签和目标语言组合成查询文本，并返回 top K 相似题、笔记或历史记录。
+- 检索排序必须稳定过滤已删除资料和低分结果，且 LeetCode 轻量索引只返回元数据摘要，不返回未授权完整题面。
+- 当没有可检索资料、embedding 生成失败或分数低于阈值时，系统返回空结果和可理解原因，不阻塞后续截图解题主流程。
+- 当相似题命中包含题型或算法标签时，系统能据此推荐解题模式，例如哈希表、双指针、动态规划、图搜索、二分和回溯。
+- 用户导入代码模板后，系统能按目标语言或用户默认语言优先选择同语言模板，并用算法标签和相似题信号排序。
+- 当没有同语言模板时，系统可以回退到未指定语言的通用模板，但不会把明显不匹配的其他语言模板排在前面。
+- 当没有相似题、算法标签或可用模板信号时，系统返回空模板推荐和可理解原因，不阻塞后续 RAG 注入或解题主流程。
+- 当相似题、历史摘要、用户笔记或代码模板达到置信度阈值时，系统能把它们压缩为独立的本地召回上下文 section，并注入解题 prompt。
+- 解题 prompt 必须清楚分隔当前截图识别内容和本地召回上下文，并明确要求模型优先相信截图识别结果和用户确认内容。
+- RAG prompt 注入必须限制最大召回条数、最低分数和上下文 token 预算，低分、空摘要或超预算内容要被跳过并返回原因。
+- 当所有本地上下文都为空、低置信或超预算时，系统应返回可理解跳过原因，并继续保留原始解题 prompt 可用。
+- LeetCode 轻量索引命中只能作为元数据提示注入，不得把它当作完整题面或覆盖当前截图识别结果。
+- 结果面板在本次 RAG 命中存在时，应展示相似题、本地模板、历史记录、用户资料和解题模式来源，以及每条命中的置信度。
+- 用户应能在结果面板展开单条 RAG 上下文，查看摘要、算法标签、token 估算、使用状态和跳过原因。
+- 用户应能忽略某条 RAG 上下文；被忽略后该条不再占用当前结果面板的上下文列表空间，但不删除本地资料。
+- 已注入 prompt 的上下文和因低置信、超预算或超条数被跳过的上下文必须有不同状态标记，避免用户误解本次实际使用范围。
+- 当本次没有可展示的 RAG 上下文时，结果面板不显示空的上下文区块，保持原有答案阅读体验。
+- 用户能在设置页开启或关闭本地知识增强，且该总开关默认关闭并在保存后持久化。
+- 用户能单独控制历史入库；关闭历史入库后，即使保留普通历史保存，也不应把新历史写入 RAG 检索资料。
+- 用户能单独控制用户笔记检索、代码模板检索和相似题提示；关闭任一来源后，后续检索和 prompt 注入流程应能按设置跳过该来源。
+- 用户能设置最大召回条数；该值必须在界面和后端都保持边界限制，避免异常设置导致过量上下文注入。
+- 旧版本设置文件没有本地知识增强字段时，系统会迁移到默认关闭和安全默认值，不因字段缺失导致设置加载失败。
+- 当本地知识增强总开关关闭，或所有 RAG 来源都关闭时，截图到 AI 解题主流程仍然可用，不被 RAG 设置阻塞。
+- 用户能在隐私控制区清除本地 RAG 索引；清除动作应移除本地 embedding 缓存和历史 RAG 索引，但不删除用户导入原文、普通历史和内置轻量题目元数据。
+- 用户能在隐私控制区查看并删除单条导入资料；删除后该资料不再出现在导入资料列表，也不再参与后续检索和模板选择。
+- 用户能触发重建 RAG 索引；系统应基于当前未删除的用户导入资料、允许入库的历史记录和轻量题目元数据重新生成本地 embedding 缓存，并返回可理解的重建统计。
+- 用户能从隐私控制区关闭历史入库；关闭后新生成的普通历史仍可按“保存历史”保留，但不会新增历史 RAG 文档、分块或 embedding。
+- 当本地知识增强关闭、索引为空或没有可重建资料时，清除和重建动作应安全完成并给出结果提示，不阻塞截图到 AI 主流程。
 
 ## 阶段 2 用例
 
@@ -284,3 +342,70 @@
     - 验证：README.md 中新增 "已知限制与后续方向" 章节，列出 4 条当前限制和 5 个后续方向。
   - [ ] 9.9 在验证通过后，为第一版 MVP 做 tag 或发布准备。
     - 阻塞：依赖 9.7 手动检查完成。安装包已生成（`src-tauri/target/release/bundle/nsis/Question Scan_0.1.0_x64-setup.exe`，3.87 MB）。
+
+- [ ] 10.0 本地 RAG 和 LeetCode 题目上下文增强
+  - [x] 10.1 更新 PRD，明确 RAG 只服务授权练习、自测、开放题目环境和个人工作流，不支持隐蔽考试、受限面试规避、自动提交或自动填答案。
+    - 验证：已更新 `prd/prd-question-scan.md`，新增本地 RAG、多层容错 Agent 工作流和远端 Provider Proxy 的功能需求、非目标范围、设计要求、技术方案、阶段规划、后续验收标准、风险和开放问题；RAG 明确只使用轻量题目索引、用户导入资料和用户可控历史，不默认内置未授权完整题面。
+  - [x] 10.2 设计本地 RAG 数据模型，覆盖题目索引、用户笔记、代码模板、历史题目、召回记录和数据来源标记。
+    - 验证：已新增 `docs/rag-data-model.md`，覆盖 RAG 用例、JSON/SQLite 存储策略、`RagDocument`、`RagChunk`、`RagEmbedding`、`ProblemIndexEntry`、`CodeTemplate`、`HistoryRagLink`、`RetrievalRecord`、`RagSettings`、删除隐私规则、召回契约、prompt 注入契约和测试建议；`git diff --check` 通过。
+  - [x] 10.3 增加 LeetCode 轻量题目索引，先只保存题号、标题、slug、难度、标签、题型和平台来源，不默认内置未授权完整题面。
+    - 验证：已新增 `src-tauri/src/problem_index.rs` 和 `src-tauri/data/leetcode-lightweight-index.json`，索引项只包含 `id`、`platform`、`problemNumber`、`slug`、`title`、`difficulty`、`tags`、`algorithmTags`、`problemType` 和 `source`；后端使用 `deny_unknown_fields` 拒绝 `problemStatement` 等完整题面字段；已新增 `list_leetcode_problem_index` 只读命令和前端类型化 API；`npm test -- --run`（49 通过）、`cargo test`（142 通过）、`npm run lint` 和 `git diff --check` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过。
+  - [x] 10.4 支持用户导入自己的 Markdown、JSON 或 CSV 题解、错题笔记和代码模板，并记录导入来源、更新时间和删除入口。
+    - 验证：已新增 `src-tauri/src/rag_imports.rs`，支持 Markdown front matter/标题解析、JSON 单条或数组解析、CSV header 解析、题解/笔记/代码模板类型、来源名称、来源 URI、导入时间、更新时间、重复导入更新和软删除；已新增 `import_rag_documents`、`list_rag_imports` 和 `delete_rag_import` 命令及前端类型化 API；`npm test -- --run`（50 通过）、`cargo test`（148 通过）、`npm run lint` 和 `git diff --check` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过。
+  - [x] 10.5 在用户开启历史保存时，为识别出的题目文本、AI 输出摘要、用户备注、语言和标签建立可检索记录。
+    - 验证：已新增 `src-tauri/src/rag_history.rs`，把历史记录转换为本地 JSON-backed RAG 文档、分块和 `HistoryRagLink`，摘要会跳过完整代码块，删除单条历史或清空历史时对应记录标记为不可召回；已新增 `save_history_entry` 命令并在前端 AI 流 `done` 且 `saveHistory=true` 时触发，关闭历史时不会新增记录；`npm test -- --run`（52 通过）、`cargo test`（154 通过）、`npm run lint` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过。
+  - [x] 10.6 接入 embedding 生成与本地向量检索，支持按题干、标题、样例、约束和标签召回 top K 相似题。
+    - 验证：已新增 `src-tauri/src/rag_retrieval.rs`，使用本地 deterministic `local-hash` embedding provider 为用户导入资料、历史 RAG 分块和 LeetCode 轻量元数据生成并缓存向量；已新增 `search_rag_context` 命令和前端类型化 API，支持按标题、题干、样例、约束、标签、算法标签、目标语言、top K 和最低分过滤召回相似上下文；删除资料和低分结果不会返回，轻量索引只返回元数据摘要；`cargo test`（161 通过）、`npm test -- --run`（53 通过）、`npm run lint` 和 `git diff --check` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过。
+  - [x] 10.7 增加题型和模板召回逻辑，按相似题、算法标签和用户默认语言选择可用的解题模式与代码模板。
+    - 验证：已新增 `src-tauri/src/rag_templates.rs`，根据 10.6 相似题结果中的 `problemType`、标签和算法标签推荐哈希表、双指针、滑动窗口、动态规划、二分、图搜索、树遍历、单调栈、回溯和数学等解题模式；用户导入的 `template` 资料会按目标语言或用户默认语言、平台、算法标签和命中的解题模式排序，其他语言模板不会被误选，未指定语言的通用模板可作为回退；已新增 `select_rag_template_context` 命令和前端类型化 API；`cargo test`（165 通过）、`npm test -- --run`（54 通过）、`npm run lint`、`rustfmt --edition 2021 --check src\rag_templates.rs src\rag_retrieval.rs` 和 `git diff --check` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过。
+  - [x] 10.8 在解题 prompt 中注入压缩后的本地上下文，限制召回条数和 token 预算，避免低置信内容覆盖截图识别结果。
+    - 验证：已新增 `src-tauri/src/rag_prompt_context.rs`，把 10.6 的相似题/历史/用户资料命中和 10.7 的解题模式/代码模板推荐压缩为独立 `Local recalled context` section；注入前会按 `maxItems`、`maxContextTokens` 和 `minScore` 过滤，低分、空上下文、超条数和超 token 预算项会返回 `skippedReason`，且 LeetCode 轻量索引只作为 metadata-only 提示；`src-tauri/src/prompts.rs` 已支持可选 RAG section 注入，`build_rag_prompt_context` 命令和前端类型化 API 已接入；`cargo test`（171 通过）、`npm test -- --run`（55 通过）、`npm run lint`、`rustfmt --edition 2021 --check src\rag_prompt_context.rs src\prompts.rs` 和 `git diff --check` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过。
+  - [x] 10.9 在结果面板展示本次命中的相似题、本地模板、历史记录和置信度，并允许用户展开查看或忽略这些上下文。
+    - 验证：已扩展 `src/components/ResultPanel.tsx`，当传入 RAG prompt context items 时会在答案上方展示本地召回上下文区块，按相似题、用户资料、本地模板、历史记录和解题模式显示来源、类型、置信度、已注入/未注入状态；用户可以展开单条上下文查看摘要、标签、token 估算和跳过原因，也可以在当前面板忽略单条上下文且不删除本地资料；无上下文时不显示空区块；已更新中英文 i18n 文案和 `src/App.tsx` 的 ResultPanel 文案交接；`src/components/ResultPanel.test.tsx` 覆盖来源、置信度、展开详情、忽略和空上下文行为；`npm test -- --run`（59 通过）、`cargo test`（171 通过）、`npm run lint`、`npm run build` 和 `git diff --check` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过。
+  - [x] 10.10 在设置页增加本地知识增强开关，覆盖历史入库、用户笔记检索、代码模板检索、相似题提示和最大召回条数。
+    - 验证：已扩展前后端设置契约，新增本地知识增强总开关、历史入库、用户笔记检索、代码模板检索、相似题提示和最大召回条数；总开关默认关闭，历史入库默认关闭，最大召回条数在前端和后端均限制在 1-20；`save_history_entry`、`search_rag_context`、`select_rag_template_context` 和 `build_rag_prompt_context` 会按设置过滤历史、用户资料、模板和轻量相似题来源；设置页已加入中英文控件并覆盖持久化测试；`npm test -- --run`（60 通过）、`cargo test`（174 通过）、`npm run lint`、`npm run build` 和 `git diff --check` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过。
+  - [x] 10.11 增加清除 RAG 索引、删除单条导入资料、重建索引和关闭历史入库的隐私控制。
+    - 验证：已新增 `clear_rag_index` 和 `rebuild_rag_index` 后端命令，清除动作会移除 embedding 缓存和历史 RAG 索引但保留用户导入原文、普通历史和轻量题目元数据；重建动作会按当前本地知识增强开关、历史入库开关、用户资料检索开关和相似题开关重新生成索引并返回统计；删除单条导入资料时会同步清理对应 embedding；设置页数据管理区已增加清除索引、重建索引、刷新/删除导入资料和即时关闭历史入库入口；`npm test -- --run src/App.test.tsx src/lib/api.test.ts src/lib/types.test.ts src/lib/i18n.test.ts`（34 通过）、`cargo test rag_retrieval`（10 通过）、`cargo test rag_history`（6 通过）、`cargo test commands`（9 通过）、`npm test -- --run`（64 通过）、`cargo test`（178 通过）、`npm run lint`、`rustfmt --edition 2021 --check src\commands.rs src\rag_retrieval.rs src\rag_history.rs`、`npm run build` 和 `git diff --check` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过。
+  - [x] 10.12 为题目索引解析、导入校验、分块、embedding 缓存、相似题排序、上下文裁剪和隐私关闭行为补充测试。
+    - 用例：题目索引解析必须拒绝空标签、空算法标签和不支持的 schema，避免不完整元数据进入 RAG。
+    - 用例：用户导入必须拒绝空来源、空内容、缺少正文的 JSON/CSV 和未闭合引号的 CSV。
+    - 用例：长用户资料必须按稳定分块生成多个 embedding，删除资料后对应分块 embedding 必须全部清理。
+    - 用例：相似题排序必须在分数相同的情况下保持稳定顺序，避免 UI 和 prompt 上下文抖动。
+    - 用例：上下文裁剪必须压缩长 snippet 和模板正文，并在 token 预算不足时保留原始解题 prompt。
+    - 用例：关闭本地知识增强、历史入库、用户资料检索、代码模板检索或相似题提示时，命令层必须过滤对应 RAG 来源，不阻塞主解题流程。
+    - 验证：已在 `src-tauri/src/problem_index.rs` 补充不支持 schema、空标签和空算法标签测试；在 `src-tauri/src/rag_imports.rs` 补充空来源、空内容、缺少正文 JSON/CSV 和未闭合 CSV 引号测试；在 `src-tauri/src/rag_retrieval.rs` 补充长导入资料多分块 embedding、删除导入资料清理全部分块 embedding 和同分 chunk ID 稳定排序测试；在 `src-tauri/src/rag_prompt_context.rs` 补充长检索 snippet 和模板正文裁剪测试；在 `src-tauri/src/commands.rs` 补充关闭各 RAG 来源后的命令层过滤测试。`cargo test problem_index`（9 通过）、`cargo test rag_imports`（9 通过）、`cargo test rag_retrieval`（12 通过）、`cargo test rag_prompt_context`（6 通过）、`cargo test commands`（10 通过）、`cargo test`（187 通过）、`npm test -- --run src/App.test.tsx src/lib/api.test.ts src/lib/types.test.ts src/lib/i18n.test.ts`（34 通过）、`rustfmt --edition 2021 --check src\problem_index.rs src\rag_imports.rs src\rag_retrieval.rs src\rag_prompt_context.rs src\commands.rs` 和 `git diff --check` 均通过。当前项目没有 E2E 脚本，未声明 E2E 通过；全量 `cargo fmt -- --check` 仍会因既有未触碰文件 `src-tauri/src/pipeline.rs`、`src-tauri/src/session.rs` 的格式差异失败。
+  - [ ] 10.13 用数组题、动态规划题和图题各手动验证一次：截图识别后能召回相似题，且输出不会被错误上下文带偏。
+    - 用例：数组题可用 Two Sum / Contains Duplicate / Best Time to Buy and Sell Stock，触发截图识别后应召回数组、哈希表或双指针相关相似题，并且最终解法以当前截图题面为主。
+    - 用例：动态规划题可用 Climbing Stairs / Maximum Subarray / Longest Palindromic Substring，触发截图识别后应召回动态规划相关相似题或解题模式，并且不能因为相似题上下文改变当前题目的状态定义。
+    - 用例：图题可用 Number of Islands，触发截图识别后应召回图搜索、DFS/BFS 或网格图相关相似题，并且最终输出不能被数组或动态规划上下文带偏。
+    - 验证：已补齐截图识别→RAG 召回→prompt 注入→结果面板上下文交接链路。`src-tauri/src/pipeline.rs` 会在截图后先调用视觉模型识别题目区域和标题/题干，再把识别结果交给 `search_rag_context_with_settings`、`select_rag_template_context_with_settings` 和 `build_rag_prompt_context_with_settings`；识别或 RAG 失败时会跳过增强并继续原解题主流程。`src-tauri/src/session.rs` 会保存本次 RAG 上下文和 prompt section，语言切换时复用；`src-tauri/src/streaming.rs` 和 `src/App.tsx` 已通过 `ragContext` 流事件把真实命中项传给 `ResultPanel`。`npm test -- --run`（65 通过）、`npm run lint`、`npm run build`、`cargo test`（190 通过）和 `git diff --check` 均通过。
+    - 阻塞：该子任务仍未完成，因为还需要真实 GUI、真实多模态 Provider API Key 和数组/DP/图三类题截图人工验证召回质量与最终输出是否被错误上下文带偏。当前 shell 环境只能完成自动化验证，不能替代 `npm run dev:desktop` 下的手动观察；项目 `package.json` 也没有 E2E 脚本，未声明 E2E 通过。
+
+- [ ] 11.0 多层容错 Agent 工作流
+  - [ ] 11.1 更新 PRD 和开发文档，定义 Agent 只做可见、可解释、用户可控的本地流程编排，不新增隐蔽使用或规避检测能力。
+  - [ ] 11.2 定义 Agent 步骤状态机，覆盖 `capture`、`crop`、`recognize`、`retrieve`、`solve`、`parse`、`render` 和 `save`。
+  - [ ] 11.3 为每个步骤定义输入、输出、成功条件、失败原因、重试策略和可降级路径，统一写入类型定义。
+  - [ ] 11.4 将现有截图、自动裁剪、手动框选、题目识别、AI 请求、输出解析和历史保存串联到 Agent 工作流。
+  - [ ] 11.5 增加截图阶段容错：多显示器枚举失败、权限不足、截图为空、图片过大和临时文件写入失败时给出明确状态与重试入口。
+  - [ ] 11.6 增加裁剪阶段容错：自动定位低置信度、坐标越界或识别失败时进入手动框选，并保留重新自动识别入口。
+  - [ ] 11.7 增加识别阶段容错：视觉模型失败时尝试本地 OCR 或手动确认题目标题/题干，再把确认内容交给 RAG 和解题 prompt。
+  - [ ] 11.8 增加 RAG 阶段容错：本地索引为空、embedding 失败或召回低置信度时跳过增强，不阻塞主解题流程。
+  - [ ] 11.9 增加 AI 请求阶段容错：主 provider 超时、限流、网络错误或非流式解析失败时，按用户配置进行重试、非流式降级或备用 provider 切换。
+  - [ ] 11.10 增加输出解析阶段容错：模型未按固定格式输出时，先本地提取主代码块，再可选请求一次格式修复，仍失败则展示原始输出并标记复制限制。
+  - [ ] 11.11 在结果面板展示 Agent 步骤进度、使用过的降级路径、失败原因、重试次数和最终使用的 provider。
+  - [ ] 11.12 在设置页增加智能容错开关，允许用户配置最大重试次数、是否启用备用 provider、是否启用 OCR 兜底和是否展示详细步骤日志。
+  - [ ] 11.13 为状态机流转、截图失败、裁剪低置信度、识别失败、RAG 跳过、AI 重试、provider 切换和输出格式修复补充测试。
+  - [ ] 11.14 手动验证浏览器、PDF、IDE、深色题目页和长题面截图，确认每条失败路径都有可理解提示和可继续操作。
+
+- [ ] 12.0 可选远端 Provider Proxy 和 API Key 托管
+  - [ ] 12.1 更新 PRD 和隐私文档，明确远端代理模式默认关闭，用户开启后裁剪图、识别文本和请求参数会发送到用户配置的代理服务。
+  - [ ] 12.2 设计本地直连和远端代理两种 provider 模式，确保用户可以随时关闭代理并回到本地 API Key。
+  - [ ] 12.3 定义远端代理请求协议，覆盖模型请求、流式输出、错误标准化、超时、限流、备用 provider 和审计元数据。
+  - [ ] 12.4 在设置页增加代理地址、用户 token、连接测试、代理模式说明、数据流提示和清除 token 操作。
+  - [ ] 12.5 将代理 token 按现有密钥存储策略保存，避免写入普通设置文件，并为迁移和删除流程补充校验。
+  - [ ] 12.6 为代理模式接入 AI 请求层，使截图图片和 prompt 可以经代理转发，同时保留现有 OpenAI-compatible 本地直连路径。
+  - [ ] 12.7 增加代理 failover 策略：代理不可用时按用户配置提示重试、切回本地 provider 或终止请求，不自动泄露到未配置服务。
+  - [ ] 12.8 编写远端代理安全边界文档，要求默认不保存截图、题面和完整回答日志；如开启日志，只记录时间、模型、错误码、耗时和用量估算。
+  - [ ] 12.9 可选搭建最小代理服务样例，用于本地开发验证 token 鉴权、provider 转发、流式响应和错误映射。
+  - [ ] 12.10 为代理配置校验、token 存取、请求体构造、错误映射、流式转发和本地直连回退补充测试。
+  - [ ] 12.11 手动验证本地直连、代理成功、代理超时、代理鉴权失败、代理限流和关闭代理后的回退行为。

@@ -59,6 +59,74 @@ export const RECOGNITION_CONFIDENCE_ROUTES = [
   'needsConfirmation',
   'manualFallback',
 ] as const;
+/** 题目索引来源平台。 */
+export const PROBLEM_PLATFORMS = ['leetcode'] as const;
+/** 题目难度。 */
+export const PROBLEM_DIFFICULTIES = [
+  'easy',
+  'medium',
+  'hard',
+  'unknown',
+] as const;
+/** 轻量题目索引用于召回的题型。 */
+export const PROBLEM_TYPES = [
+  'array',
+  'hash-table',
+  'linked-list',
+  'string',
+  'sliding-window',
+  'two-pointers',
+  'dynamic-programming',
+  'binary-search',
+  'tree',
+  'graph',
+  'stack',
+  'backtracking',
+  'design',
+  'math',
+] as const;
+/** 用户 RAG 资料导入格式。 */
+export const RAG_IMPORT_FORMATS = ['markdown', 'json', 'csv'] as const;
+/** 用户 RAG 资料类型。 */
+export const RAG_IMPORT_KINDS = ['solution', 'note', 'template'] as const;
+/** RAG 检索结果来源。 */
+export const RAG_SEARCH_SOURCE_TYPES = [
+  'leetcodeIndex',
+  'userImport',
+  'history',
+] as const;
+/** RAG 检索分块类型。 */
+export const RAG_SEARCH_CHUNK_KINDS = [
+  'problemStatement',
+  'solution',
+  'note',
+  'template',
+  'historySummary',
+  'metadata',
+] as const;
+/** RAG prompt 注入上下文来源。 */
+export const RAG_PROMPT_CONTEXT_SOURCE_TYPES = [
+  'leetcodeIndex',
+  'userImport',
+  'history',
+  'codeTemplate',
+  'solutionMode',
+] as const;
+/** RAG prompt 注入上下文类型。 */
+export const RAG_PROMPT_CONTEXT_KINDS = [
+  'problemStatement',
+  'solution',
+  'note',
+  'template',
+  'historySummary',
+  'metadata',
+  'solutionMode',
+] as const;
+
+/** 本地 RAG 最大召回条数边界。后端也会做同样的清理和限制。 */
+export const RAG_MAX_RECALL_ITEMS_MIN = 1;
+export const RAG_MAX_RECALL_ITEMS_MAX = 20;
+export const DEFAULT_RAG_MAX_RECALL_ITEMS = 5;
 
 export type LanguageId = (typeof LANGUAGE_IDS)[number];
 export type OutputSpeed = (typeof OUTPUT_SPEEDS)[number];
@@ -71,6 +139,16 @@ export type ScreenshotState = (typeof SCREENSHOT_STATES)[number];
 export type AiResultState = (typeof AI_RESULT_STATES)[number];
 export type RecognitionConfidenceRoute =
   (typeof RECOGNITION_CONFIDENCE_ROUTES)[number];
+export type ProblemPlatform = (typeof PROBLEM_PLATFORMS)[number];
+export type ProblemDifficulty = (typeof PROBLEM_DIFFICULTIES)[number];
+export type ProblemType = (typeof PROBLEM_TYPES)[number];
+export type RagImportFormat = (typeof RAG_IMPORT_FORMATS)[number];
+export type RagImportKind = (typeof RAG_IMPORT_KINDS)[number];
+export type RagSearchSourceType = (typeof RAG_SEARCH_SOURCE_TYPES)[number];
+export type RagSearchChunkKind = (typeof RAG_SEARCH_CHUNK_KINDS)[number];
+export type RagPromptContextSourceType =
+  (typeof RAG_PROMPT_CONTEXT_SOURCE_TYPES)[number];
+export type RagPromptContextKind = (typeof RAG_PROMPT_CONTEXT_KINDS)[number];
 
 /** 题目区域边界框（像素坐标）。 */
 export interface QuestionBoundingBox {
@@ -91,6 +169,205 @@ export interface QuestionRecognitionResult {
   title: string | null;
   questionText: string | null;
   reason: string;
+}
+
+/** LeetCode 轻量题目索引项：只包含元数据，不包含完整题面或题解正文。 */
+export interface ProblemIndexEntry {
+  id: string;
+  platform: ProblemPlatform;
+  problemNumber: string;
+  slug: string;
+  title: string;
+  difficulty: ProblemDifficulty;
+  tags: string[];
+  algorithmTags: string[];
+  problemType: ProblemType;
+  source: string;
+}
+
+/** 用户导入 RAG 资料的请求体。 */
+export interface RagImportRequest {
+  sourceName: string;
+  sourceUri: string | null;
+  format: RagImportFormat;
+  kind: RagImportKind;
+  content: string;
+}
+
+/** 已保存的用户导入资料。 */
+export interface RagImportedDocument {
+  id: string;
+  sourceName: string;
+  sourceUri: string | null;
+  sourceFormat: RagImportFormat;
+  kind: RagImportKind;
+  title: string;
+  text: string;
+  language: LanguageId | null;
+  platform: PlatformFormat | null;
+  tags: string[];
+  algorithmTags: string[];
+  importedAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+/** RAG 索引维护命令返回的统计信息。 */
+export interface RagIndexMaintenanceResult {
+  clearedEmbeddingCount: number;
+  rebuiltEmbeddingCount: number;
+  clearedHistoryDocumentCount: number;
+  rebuiltHistoryDocumentCount: number;
+  clearedHistoryChunkCount: number;
+  skippedReason: 'localRagDisabled' | 'emptyIndex' | string | null;
+}
+
+/** 本地 RAG 向量检索请求体。 */
+export interface RagSearchRequest {
+  recognizedTitle: string | null;
+  recognizedText: string | null;
+  examples: string[];
+  constraints: string[];
+  tags: string[];
+  algorithmTags: string[];
+  targetLanguage: LanguageId | null;
+  platform: PlatformFormat | ProblemPlatform | null;
+  topK: number | null;
+  minScore: number | null;
+}
+
+/** 本地 RAG 检索命中的相似上下文。 */
+export interface RagSearchResult {
+  chunkId: string;
+  documentId: string;
+  sourceType: RagSearchSourceType;
+  sourceId: string | null;
+  title: string;
+  snippet: string;
+  score: number;
+  kind: RagSearchChunkKind;
+  problemType: ProblemType | null;
+  language: LanguageId | null;
+  platform: PlatformFormat | ProblemPlatform | null;
+  tags: string[];
+  algorithmTags: string[];
+  reason: string;
+}
+
+/** 本地 RAG 检索响应。skippedReason 存在时表示本次可安全跳过增强。 */
+export interface RagSearchResponse {
+  items: RagSearchResult[];
+  skippedReason:
+    | 'emptyQuery'
+    | 'emptyIndex'
+    | 'emptyEmbedding'
+    | 'lowConfidence'
+    | string
+    | null;
+}
+
+/** 根据相似题和标签选择解题模式与代码模板的请求体。 */
+export interface RagTemplateSelectionRequest {
+  targetLanguage: LanguageId | null;
+  platform: PlatformFormat | ProblemPlatform | null;
+  tags: string[];
+  algorithmTags: string[];
+  similarItems: RagSearchResult[];
+  maxSolutionModes: number | null;
+  maxTemplates: number | null;
+}
+
+/** 推荐的解题模式。 */
+export interface RagSolutionMode {
+  id: string;
+  title: string;
+  description: string;
+  problemType: ProblemType | null;
+  algorithmTags: string[];
+  score: number;
+  reason: string;
+}
+
+/** 命中的代码模板。 */
+export interface RagCodeTemplate {
+  id: string;
+  sourceDocumentId: string;
+  title: string;
+  language: LanguageId | null;
+  platform: PlatformFormat | ProblemPlatform | null;
+  algorithmTags: string[];
+  matchedModeIds: string[];
+  snippet: string;
+  templateText: string;
+  score: number;
+  reason: string;
+}
+
+/** 解题模式与代码模板选择结果。 */
+export interface RagTemplateSelectionResponse {
+  targetLanguage: LanguageId;
+  platform: PlatformFormat | ProblemPlatform | null;
+  solutionModes: RagSolutionMode[];
+  templates: RagCodeTemplate[];
+  skippedReason:
+    | 'noRecommendationSignals'
+    | 'noTemplateMatches'
+    | string
+    | null;
+}
+
+/** 构建 RAG prompt 上下文的请求体。 */
+export interface RagPromptContextRequest {
+  recognizedTitle: string | null;
+  recognizedText: string | null;
+  targetLanguage: LanguageId | null;
+  platform: PlatformFormat | ProblemPlatform | null;
+  searchResults: RagSearchResult[];
+  templateContext: RagTemplateSelectionResponse | null;
+  maxItems: number | null;
+  maxContextTokens: number | null;
+  minScore: number | null;
+}
+
+/** RAG prompt 注入候选项，包含已使用或跳过原因。 */
+export interface RagPromptContextItem {
+  id: string;
+  sourceType: RagPromptContextSourceType;
+  sourceId: string | null;
+  title: string;
+  snippet: string;
+  score: number;
+  kind: RagPromptContextKind;
+  language: LanguageId | null;
+  platform: PlatformFormat | ProblemPlatform | null;
+  tags: string[];
+  algorithmTags: string[];
+  usedInPrompt: boolean;
+  skippedReason:
+    | 'emptyContext'
+    | 'lowConfidence'
+    | 'maxItems'
+    | 'tokenBudgetExceeded'
+    | string
+    | null;
+  tokenEstimate: number;
+  reason: string;
+}
+
+/** RAG prompt 上下文构建结果。 */
+export interface RagPromptContextResponse {
+  solutionPrompt: string;
+  promptSection: string;
+  items: RagPromptContextItem[];
+  usedItemCount: number;
+  tokenEstimate: number;
+  skippedReason:
+    | 'emptyContext'
+    | 'lowConfidence'
+    | 'tokenBudgetExceeded'
+    | 'noUsableContext'
+    | string
+    | null;
 }
 
 /** 用户手动框选的裁剪区域（视口坐标，归一化后使用）。 */
@@ -136,6 +413,21 @@ export interface HistoryEntry {
   model: string;
   result: string;
   userNote: string | null;
+  tags: string[];
+  algorithmTags: string[];
+}
+
+/** 保存历史记录并建立 RAG 可检索记录的请求体。 */
+export interface SaveHistoryEntryRequest {
+  recognizedTitle: string | null;
+  recognizedText: string | null;
+  language: LanguageId;
+  platform: PlatformFormat;
+  model: string;
+  result: string;
+  userNote: string | null;
+  tags: string[];
+  algorithmTags: string[];
 }
 
 /**
@@ -160,6 +452,12 @@ export interface AppSettings {
   screenshotJpegQuality: number;
   saveHistory: boolean;
   launchToTray: boolean;
+  localRagEnabled: boolean;
+  ragHistoryIndexingEnabled: boolean;
+  ragUserNotesRetrievalEnabled: boolean;
+  ragCodeTemplatesRetrievalEnabled: boolean;
+  ragSimilarProblemsEnabled: boolean;
+  ragMaxRecallItems: number;
   theme: ThemePreference;
   uiLocale: UiLocale;
 }
@@ -190,6 +488,15 @@ export type AiStreamChunkPayload = {
   content: string;
 };
 
+/** AI 请求使用的本地 RAG 上下文。 */
+export type AiStreamRagContextPayload = {
+  type: 'ragContext';
+  items: RagPromptContextItem[];
+  usedItemCount: number;
+  tokenEstimate: number;
+  skippedReason: string | null;
+};
+
 /** AI 流式输出：模型响应已完整结束。 */
 export type AiStreamDonePayload = {
   type: 'done';
@@ -205,6 +512,7 @@ export type AiStreamErrorPayload = {
 /** AI 流式事件联合类型。前端监听此类型的事件流。 */
 export type AiStreamEventPayload =
   | AiStreamChunkPayload
+  | AiStreamRagContextPayload
   | AiStreamDonePayload
   | AiStreamErrorPayload;
 
@@ -249,6 +557,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   screenshotJpegQuality: 85,
   saveHistory: false,
   launchToTray: false,
+  localRagEnabled: false,
+  ragHistoryIndexingEnabled: false,
+  ragUserNotesRetrievalEnabled: true,
+  ragCodeTemplatesRetrievalEnabled: true,
+  ragSimilarProblemsEnabled: true,
+  ragMaxRecallItems: DEFAULT_RAG_MAX_RECALL_ITEMS,
   theme: 'system',
   uiLocale: 'zhCn',
 };

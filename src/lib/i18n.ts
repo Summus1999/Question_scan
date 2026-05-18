@@ -8,6 +8,9 @@ import type {
   AiResultState,
   AppStatus,
   OutputSpeed,
+  RagImportKind,
+  RagPromptContextKind,
+  RagPromptContextSourceType,
   ScreenshotState,
   ThemePreference,
   TrayStatus,
@@ -31,6 +34,32 @@ type AppMessages = {
     saving: string;
     savingEllipsis: string;
     showWindow: string;
+  };
+  dataManagement: {
+    clearRagIndex: string;
+    clearRagIndexNotice: string;
+    deleteRagImport: string;
+    deleteRagImportNotice: string;
+    disableHistoryIndexing: string;
+    disableHistoryIndexingNotice: string;
+    historyIndexingAlreadyDisabled: string;
+    importKindLabels: Record<RagImportKind, string>;
+    importUpdatedAt: string;
+    loading: string;
+    noHistoryEntries: string;
+    noRagImports: string;
+    ragIndexSkippedEmpty: string;
+    ragIndexSkippedLocalRagDisabled: string;
+    ragIndexSkippedUnknown: string;
+    ragIndexStats: string;
+    ragPrivacyDescription: string;
+    ragPrivacyTitle: string;
+    rebuildRagIndex: string;
+    rebuildRagIndexNotice: string;
+    refreshHistory: string;
+    refreshRagImports: string;
+    title: string;
+    untitledHistoryEntry: string;
   };
   appStatus: Record<AppStatus, string>;
   aiResultState: Record<AiResultState, string>;
@@ -97,6 +126,22 @@ type AppMessages = {
     recognizingStatus: string;
     regenerate: string;
     regenerateNotice: string;
+    ragContextAlgorithmTags: string;
+    ragContextCollapse: string;
+    ragContextExpand: string;
+    ragContextIgnore: string;
+    ragContextIgnoredNotice: string;
+    ragContextKindLabels: Record<RagPromptContextKind, string>;
+    ragContextNoVisibleItems: string;
+    ragContextReason: string;
+    ragContextScore: string;
+    ragContextSkipped: string;
+    ragContextSourceLabels: Record<RagPromptContextSourceType, string>;
+    ragContextSubtitle: string;
+    ragContextTags: string;
+    ragContextTitle: string;
+    ragContextTokens: string;
+    ragContextUsed: string;
     screenshotStatus: string;
     switchLanguage: string;
     switchLanguageNotice: string;
@@ -124,6 +169,20 @@ type AppMessages = {
   settings: {
     launchToTrayDescription: string;
     launchToTrayLabel: string;
+    localRagDescription: string;
+    localRagEnabledDescription: string;
+    localRagEnabledLabel: string;
+    localRagTitle: string;
+    ragCodeTemplatesDescription: string;
+    ragCodeTemplatesLabel: string;
+    ragHistoryIndexingDescription: string;
+    ragHistoryIndexingLabel: string;
+    ragMaxRecallItemsDescription: string;
+    ragMaxRecallItemsLabel: string;
+    ragSimilarProblemsDescription: string;
+    ragSimilarProblemsLabel: string;
+    ragUserNotesDescription: string;
+    ragUserNotesLabel: string;
     saveHistoryDescription: string;
     saveHistoryLabel: string;
     streamingEnabledDescription: string;
@@ -154,6 +213,38 @@ const zhCn: AppMessages = {
     saving: '保存中',
     savingEllipsis: '保存中...',
     showWindow: '显示窗口',
+  },
+  dataManagement: {
+    clearRagIndex: '清除 RAG 索引',
+    clearRagIndexNotice: 'RAG 索引已清除。',
+    deleteRagImport: '删除导入资料',
+    deleteRagImportNotice: '导入资料已删除。',
+    disableHistoryIndexing: '关闭历史入库',
+    disableHistoryIndexingNotice: '历史入库已关闭。',
+    historyIndexingAlreadyDisabled: '历史入库已关闭。',
+    importKindLabels: {
+      solution: '题解',
+      note: '笔记',
+      template: '模板',
+    },
+    importUpdatedAt: '更新于',
+    loading: '加载中...',
+    noHistoryEntries: '暂无历史记录',
+    noRagImports: '暂无导入资料',
+    ragIndexSkippedEmpty: '没有可入库资料，索引保持为空。',
+    ragIndexSkippedLocalRagDisabled: '本地知识增强已关闭，未重建索引。',
+    ragIndexSkippedUnknown: '已跳过：',
+    ragIndexStats:
+      'embedding 清除 {clearedEmbedding} 条，重建 {rebuiltEmbedding} 条；历史文档清除 {clearedHistoryDocuments} 条，重建 {rebuiltHistoryDocuments} 条；历史分块清除 {clearedHistoryChunks} 条。',
+    ragPrivacyDescription:
+      '这些操作只处理本地 RAG 索引和导入资料；普通历史和导入原文会按各自入口单独管理。',
+    ragPrivacyTitle: 'RAG 隐私控制',
+    rebuildRagIndex: '重建 RAG 索引',
+    rebuildRagIndexNotice: 'RAG 索引重建完成。',
+    refreshHistory: '刷新历史记录',
+    refreshRagImports: '刷新导入资料',
+    title: '数据管理',
+    untitledHistoryEntry: '无标题',
   },
   appStatus: {
     loading: '加载中',
@@ -245,6 +336,37 @@ const zhCn: AppMessages = {
     recognizingStatus: '识别题目中...',
     regenerate: '重新生成',
     regenerateNotice: '正在重新生成...',
+    ragContextAlgorithmTags: '算法标签',
+    ragContextCollapse: '收起',
+    ragContextExpand: '展开',
+    ragContextIgnore: '忽略',
+    ragContextIgnoredNotice: '已忽略上下文',
+    ragContextKindLabels: {
+      problemStatement: '题面',
+      solution: '题解',
+      note: '笔记',
+      template: '模板',
+      historySummary: '历史摘要',
+      metadata: '元数据',
+      solutionMode: '解题模式',
+    },
+    ragContextNoVisibleItems: '本次命中的上下文已全部忽略。',
+    ragContextReason: '原因',
+    ragContextScore: '置信度',
+    ragContextSkipped: '未注入',
+    ragContextSourceLabels: {
+      leetcodeIndex: '相似题',
+      userImport: '用户资料',
+      history: '历史记录',
+      codeTemplate: '本地模板',
+      solutionMode: '解题模式',
+    },
+    ragContextSubtitle:
+      '这些内容只作为本地参考；如果和截图识别内容冲突，以当前截图为准。',
+    ragContextTags: '标签',
+    ragContextTitle: '本地召回上下文',
+    ragContextTokens: 'Token 估算',
+    ragContextUsed: '已注入',
     screenshotStatus: '截图中...',
     switchLanguage: '切换语言',
     switchLanguageNotice: '已切换语言，正在重新生成...',
@@ -281,6 +403,26 @@ const zhCn: AppMessages = {
   settings: {
     launchToTrayDescription: '启动后隐藏窗口，并让应用保留在托盘。',
     launchToTrayLabel: '启动到托盘',
+    localRagDescription:
+      '只使用本机历史、导入资料、模板和轻量题目元数据增强解题上下文。',
+    localRagEnabledDescription:
+      '默认关闭；关闭后截图到 AI 的主流程继续按原方式运行。',
+    localRagEnabledLabel: '启用本地知识增强',
+    localRagTitle: '本地知识增强',
+    ragCodeTemplatesDescription:
+      '允许导入的代码模板参与模板选择和 prompt 上下文。',
+    ragCodeTemplatesLabel: '代码模板检索',
+    ragHistoryIndexingDescription:
+      '普通历史开启时同步写入并召回历史 RAG 记录；常规历史快照仍由独立开关控制。',
+    ragHistoryIndexingLabel: '历史入库',
+    ragMaxRecallItemsDescription:
+      '限制每次检索和 prompt 注入最多使用的本地上下文条数。',
+    ragMaxRecallItemsLabel: '最大召回条数',
+    ragSimilarProblemsDescription:
+      '允许 LeetCode 轻量元数据提供相似题、题型和标签提示。',
+    ragSimilarProblemsLabel: '相似题提示',
+    ragUserNotesDescription: '允许导入的题解和笔记参与本地检索。',
+    ragUserNotesLabel: '用户笔记检索',
     saveHistoryDescription: '保存本地答案快照，便于稍后回看。',
     saveHistoryLabel: '保存历史',
     streamingEnabledDescription:
@@ -323,6 +465,40 @@ const enUs: AppMessages = {
     saving: 'Saving',
     savingEllipsis: 'Saving...',
     showWindow: 'Show window',
+  },
+  dataManagement: {
+    clearRagIndex: 'Clear RAG index',
+    clearRagIndexNotice: 'RAG index cleared.',
+    deleteRagImport: 'Delete import',
+    deleteRagImportNotice: 'Imported document deleted.',
+    disableHistoryIndexing: 'Disable history indexing',
+    disableHistoryIndexingNotice: 'History indexing disabled.',
+    historyIndexingAlreadyDisabled: 'History indexing is already disabled.',
+    importKindLabels: {
+      solution: 'Solution',
+      note: 'Note',
+      template: 'Template',
+    },
+    importUpdatedAt: 'Updated',
+    loading: 'Loading...',
+    noHistoryEntries: 'No history entries',
+    noRagImports: 'No imported documents',
+    ragIndexSkippedEmpty:
+      'No eligible material found; the index remains empty.',
+    ragIndexSkippedLocalRagDisabled:
+      'Local knowledge is disabled, so the index was not rebuilt.',
+    ragIndexSkippedUnknown: 'Skipped: ',
+    ragIndexStats:
+      'Embeddings cleared: {clearedEmbedding}, rebuilt: {rebuiltEmbedding}; history documents cleared: {clearedHistoryDocuments}, rebuilt: {rebuiltHistoryDocuments}; history chunks cleared: {clearedHistoryChunks}.',
+    ragPrivacyDescription:
+      'These actions only manage the local RAG index and imported documents; normal history and imported source text keep their own controls.',
+    ragPrivacyTitle: 'RAG privacy controls',
+    rebuildRagIndex: 'Rebuild RAG index',
+    rebuildRagIndexNotice: 'RAG index rebuilt.',
+    refreshHistory: 'Refresh history',
+    refreshRagImports: 'Refresh imports',
+    title: 'Data management',
+    untitledHistoryEntry: 'Untitled',
   },
   appStatus: {
     loading: 'Loading',
@@ -416,6 +592,38 @@ const enUs: AppMessages = {
     recognizingStatus: 'Recognizing question...',
     regenerate: 'Regenerate',
     regenerateNotice: 'Regenerating...',
+    ragContextAlgorithmTags: 'Algorithm tags',
+    ragContextCollapse: 'Collapse',
+    ragContextExpand: 'Expand',
+    ragContextIgnore: 'Ignore',
+    ragContextIgnoredNotice: 'Ignored contexts',
+    ragContextKindLabels: {
+      problemStatement: 'Problem statement',
+      solution: 'Solution',
+      note: 'Note',
+      template: 'Template',
+      historySummary: 'History summary',
+      metadata: 'Metadata',
+      solutionMode: 'Solution mode',
+    },
+    ragContextNoVisibleItems:
+      'All matched contexts are ignored for this panel.',
+    ragContextReason: 'Reason',
+    ragContextScore: 'Confidence',
+    ragContextSkipped: 'Skipped',
+    ragContextSourceLabels: {
+      leetcodeIndex: 'Similar problem',
+      userImport: 'User import',
+      history: 'History record',
+      codeTemplate: 'Local template',
+      solutionMode: 'Solution mode',
+    },
+    ragContextSubtitle:
+      'These local hits are references only; if they conflict with the screenshot, use the screenshot.',
+    ragContextTags: 'Tags',
+    ragContextTitle: 'Local recalled context',
+    ragContextTokens: 'Token estimate',
+    ragContextUsed: 'Used',
     screenshotStatus: 'Capturing...',
     switchLanguage: 'Switch language',
     switchLanguageNotice: 'Language switched, regenerating...',
@@ -454,6 +662,27 @@ const enUs: AppMessages = {
     launchToTrayDescription:
       'Hide the window on launch and keep the app in the tray.',
     launchToTrayLabel: 'Launch to tray',
+    localRagDescription:
+      'Use only local history, imports, templates, and lightweight problem metadata to enrich solving context.',
+    localRagEnabledDescription:
+      'Off by default; when disabled, the screenshot-to-AI flow keeps working normally.',
+    localRagEnabledLabel: 'Enable local knowledge',
+    localRagTitle: 'Local knowledge',
+    ragCodeTemplatesDescription:
+      'Allow imported code templates to participate in template selection and prompt context.',
+    ragCodeTemplatesLabel: 'Code template retrieval',
+    ragHistoryIndexingDescription:
+      'Write and recall history RAG records when history is saved; normal history saving still uses Save history.',
+    ragHistoryIndexingLabel: 'History indexing',
+    ragMaxRecallItemsDescription:
+      'Limit how many local context items each retrieval and prompt injection can use.',
+    ragMaxRecallItemsLabel: 'Max recall items',
+    ragSimilarProblemsDescription:
+      'Allow lightweight LeetCode metadata to provide similar problem, pattern, and tag hints.',
+    ragSimilarProblemsLabel: 'Similar problem hints',
+    ragUserNotesDescription:
+      'Allow imported solutions and notes to participate in local retrieval.',
+    ragUserNotesLabel: 'User note retrieval',
     saveHistoryDescription: 'Store the local answer snapshot for later review.',
     saveHistoryLabel: 'Save history',
     streamingEnabledDescription:

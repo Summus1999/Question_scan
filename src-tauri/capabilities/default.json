@@ -14,10 +14,21 @@
     "allow-toggle-main-window",
     "allow-set-tray-status",
     "allow-send-ai-request",
+    "allow-regenerate-with-language",
     "allow-clear-cache",
     "allow-list-history",
+    "allow-save-history-entry",
     "allow-delete-history-entry",
-    "allow-clear-history"
+    "allow-clear-history",
+    "allow-list-leetcode-problem-index",
+    "allow-import-rag-documents",
+    "allow-list-rag-imports",
+    "allow-delete-rag-import",
+    "allow-clear-rag-index",
+    "allow-rebuild-rag-index",
+    "allow-search-rag-context",
+    "allow-select-rag-template-context",
+    "allow-build-rag-prompt-context"
   ],
   "platforms": ["windows"]
 }

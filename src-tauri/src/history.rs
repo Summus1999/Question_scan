@@ -30,6 +30,10 @@ pub struct HistoryEntry {
     pub model: String,
     pub result: String,
     pub user_note: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub algorithm_tags: Vec<String>,
 }
 
 /** 历史记录存储：管理历史条目的内存缓存和磁盘持久化。 */
@@ -203,6 +207,8 @@ mod tests {
             model: "gpt-4o-mini".to_string(),
             result: "class Solution { ... }".to_string(),
             user_note: None,
+            tags: Vec::new(),
+            algorithm_tags: Vec::new(),
         }
     }
 
@@ -279,5 +285,25 @@ mod tests {
         let reloaded = HistoryStore::load(path, true);
         assert_eq!(reloaded.list().len(), 1);
         assert_eq!(reloaded.list()[0].id, "1");
+    }
+
+    #[test]
+    fn legacy_entries_default_tags_when_missing() {
+        let json = r#"{
+          "id": "legacy",
+          "timestamp": "2024-01-01T00:00:00Z",
+          "recognizedTitle": "Two Sum",
+          "recognizedText": "Find two numbers.",
+          "language": "cpp20",
+          "platform": "acm",
+          "model": "gpt-4o-mini",
+          "result": "Use a hash map.",
+          "userNote": null
+        }"#;
+
+        let entry: HistoryEntry = serde_json::from_str(json).expect("legacy entry");
+
+        assert!(entry.tags.is_empty());
+        assert!(entry.algorithm_tags.is_empty());
     }
 }

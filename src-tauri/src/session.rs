@@ -6,6 +6,7 @@
  * 关键用途：用户切换语言后无需重新截图，直接复用已保存的图片和识别文本。
  */
 use crate::language::{LanguageId, PlatformFormat};
+use crate::rag_prompt_context::RagPromptContextItem;
 use std::sync::RwLock;
 
 /** 保存最近一次成功流水线的数据，支持语言切换和重新生成时复用图片与识别文本，无需重新截图。 */
@@ -26,6 +27,10 @@ pub struct SessionContext {
     platform_format: RwLock<Option<PlatformFormat>>,
     /// The language used in the last request.
     last_language: RwLock<Option<LanguageId>>,
+    /// The RAG context items used in the last request, for regeneration/display reuse.
+    rag_context_items: RwLock<Vec<RagPromptContextItem>>,
+    /// The compressed RAG prompt section injected into the last request, if any.
+    rag_prompt_section: RwLock<Option<String>>,
 }
 
 impl SessionContext {
@@ -39,22 +44,40 @@ impl SessionContext {
         recognized_text: Option<impl Into<String>>,
         platform_format: PlatformFormat,
         language: LanguageId,
+        rag_context_items: Vec<RagPromptContextItem>,
+        rag_prompt_section: Option<String>,
     ) {
         *self.image_bytes.write().expect("image bytes lock poisoned") = Some(image_bytes);
-        *self.image_mime_type.write().expect("mime type lock poisoned") =
-            Some(image_mime_type.into());
+        *self
+            .image_mime_type
+            .write()
+            .expect("mime type lock poisoned") = Some(image_mime_type.into());
         *self.recognized_title.write().expect("title lock poisoned") =
             recognized_title.map(Into::into);
         *self.recognized_text.write().expect("text lock poisoned") =
             recognized_text.map(Into::into);
-        *self.platform_format.write().expect("platform lock poisoned") = Some(platform_format);
+        *self
+            .platform_format
+            .write()
+            .expect("platform lock poisoned") = Some(platform_format);
         *self.last_language.write().expect("language lock poisoned") = Some(language);
+        *self
+            .rag_context_items
+            .write()
+            .expect("rag context lock poisoned") = rag_context_items;
+        *self
+            .rag_prompt_section
+            .write()
+            .expect("rag prompt lock poisoned") = rag_prompt_section;
     }
 
     /** 返回上次请求保存的图片字节（如果有）。 */
     /// Returns the image bytes if a previous request was saved.
     pub fn image_bytes(&self) -> Option<Vec<u8>> {
-        self.image_bytes.read().expect("image bytes lock poisoned").clone()
+        self.image_bytes
+            .read()
+            .expect("image bytes lock poisoned")
+            .clone()
     }
 
     /** 返回上次请求保存的图片 MIME 类型（如果有）。 */
@@ -96,15 +119,47 @@ impl SessionContext {
         *self.last_language.read().expect("language lock poisoned")
     }
 
+    /** 返回上次请求保存的 RAG 上下文项。 */
+    /// Returns the RAG context items saved for the previous request.
+    pub fn rag_context_items(&self) -> Vec<RagPromptContextItem> {
+        self.rag_context_items
+            .read()
+            .expect("rag context lock poisoned")
+            .clone()
+    }
+
+    /** 返回上次请求注入的 RAG prompt section（如果有）。 */
+    /// Returns the RAG prompt section injected into the previous request, if any.
+    pub fn rag_prompt_section(&self) -> Option<String> {
+        self.rag_prompt_section
+            .read()
+            .expect("rag prompt lock poisoned")
+            .clone()
+    }
+
     /** 清空所有保存的会话数据。 */
     /// Clears all saved session data.
     pub fn clear(&self) {
         *self.image_bytes.write().expect("image bytes lock poisoned") = None;
-        *self.image_mime_type.write().expect("mime type lock poisoned") = None;
+        *self
+            .image_mime_type
+            .write()
+            .expect("mime type lock poisoned") = None;
         *self.recognized_title.write().expect("title lock poisoned") = None;
         *self.recognized_text.write().expect("text lock poisoned") = None;
-        *self.platform_format.write().expect("platform lock poisoned") = None;
+        *self
+            .platform_format
+            .write()
+            .expect("platform lock poisoned") = None;
         *self.last_language.write().expect("language lock poisoned") = None;
+        self.rag_context_items
+            .write()
+            .expect("rag context lock poisoned")
+            .clear();
+        *self
+            .rag_prompt_section
+            .write()
+            .expect("rag prompt lock poisoned") = None;
     }
 
     /** 判断是否拥有足够数据以使用新语言重新生成（需要图片字节和 MIME 类型）。 */
@@ -128,6 +183,8 @@ mod tests {
         assert_eq!(session.recognized_text(), None);
         assert_eq!(session.platform_format(), None);
         assert_eq!(session.last_language(), None);
+        assert!(session.rag_context_items().is_empty());
+        assert_eq!(session.rag_prompt_section(), None);
     }
 
     #[test]
@@ -140,6 +197,8 @@ mod tests {
             Some("Find two numbers that add up to target."),
             PlatformFormat::Acm,
             LanguageId::Cpp20,
+            Vec::new(),
+            None,
         );
 
         assert!(session.can_regenerate());
@@ -152,6 +211,8 @@ mod tests {
         );
         assert_eq!(session.platform_format(), Some(PlatformFormat::Acm));
         assert_eq!(session.last_language(), Some(LanguageId::Cpp20));
+        assert!(session.rag_context_items().is_empty());
+        assert_eq!(session.rag_prompt_section(), None);
     }
 
     #[test]
@@ -164,6 +225,8 @@ mod tests {
             None::<&str>,
             PlatformFormat::LeetCode,
             LanguageId::Python,
+            Vec::new(),
+            None,
         );
 
         assert!(session.can_regenerate());
@@ -183,6 +246,8 @@ mod tests {
             Some("Text"),
             PlatformFormat::Generic,
             LanguageId::Rust,
+            Vec::new(),
+            Some("Local recalled context".to_string()),
         );
 
         session.clear();
@@ -194,6 +259,8 @@ mod tests {
         assert_eq!(session.recognized_text(), None);
         assert_eq!(session.platform_format(), None);
         assert_eq!(session.last_language(), None);
+        assert!(session.rag_context_items().is_empty());
+        assert_eq!(session.rag_prompt_section(), None);
     }
 
     #[test]
@@ -220,6 +287,8 @@ mod tests {
             Some("Old Text"),
             PlatformFormat::Acm,
             LanguageId::Cpp17,
+            Vec::new(),
+            None,
         );
 
         session.save_request_data(
@@ -229,6 +298,8 @@ mod tests {
             None::<&str>,
             PlatformFormat::LeetCode,
             LanguageId::Java,
+            Vec::new(),
+            None,
         );
 
         assert_eq!(session.image_bytes(), Some(vec![2, 3]));

@@ -15,6 +15,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::{Mutex, RwLock};
 
+pub const DEFAULT_RAG_MAX_RECALL_ITEMS: u32 = 5;
+pub const MAX_RAG_MAX_RECALL_ITEMS: u32 = 20;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LanguageId {
@@ -120,6 +123,18 @@ pub struct AppSettings {
     pub platform_format: PlatformFormat,
     pub save_history: bool,
     pub launch_to_tray: bool,
+    #[serde(default = "default_local_rag_enabled")]
+    pub local_rag_enabled: bool,
+    #[serde(default = "default_rag_history_indexing_enabled")]
+    pub rag_history_indexing_enabled: bool,
+    #[serde(default = "default_rag_user_notes_retrieval_enabled")]
+    pub rag_user_notes_retrieval_enabled: bool,
+    #[serde(default = "default_rag_code_templates_retrieval_enabled")]
+    pub rag_code_templates_retrieval_enabled: bool,
+    #[serde(default = "default_rag_similar_problems_enabled")]
+    pub rag_similar_problems_enabled: bool,
+    #[serde(default = "default_rag_max_recall_items")]
+    pub rag_max_recall_items: u32,
     pub theme: ThemePreference,
     #[serde(default = "default_ui_locale")]
     pub ui_locale: UiLocale,
@@ -146,6 +161,12 @@ impl Default for AppSettings {
             platform_format: default_platform_format(),
             save_history: false,
             launch_to_tray: false,
+            local_rag_enabled: default_local_rag_enabled(),
+            rag_history_indexing_enabled: default_rag_history_indexing_enabled(),
+            rag_user_notes_retrieval_enabled: default_rag_user_notes_retrieval_enabled(),
+            rag_code_templates_retrieval_enabled: default_rag_code_templates_retrieval_enabled(),
+            rag_similar_problems_enabled: default_rag_similar_problems_enabled(),
+            rag_max_recall_items: default_rag_max_recall_items(),
             theme: ThemePreference::System,
             ui_locale: UiLocale::ZhCn,
         }
@@ -200,6 +221,42 @@ fn default_platform_format() -> PlatformFormat {
     PlatformFormat::Acm
 }
 
+/** 本地知识增强默认关闭，避免旧用户在未确认前启用 RAG。 */
+/// Keeps local knowledge enhancement opt-in for privacy and predictable behavior.
+fn default_local_rag_enabled() -> bool {
+    false
+}
+
+/** 历史入库默认关闭，需要用户在保存历史之外再次确认。 */
+/// Keeps history indexing as a separate opt-in from normal history saving.
+fn default_rag_history_indexing_enabled() -> bool {
+    false
+}
+
+/** 用户资料检索默认允许，但受本地知识增强总开关控制。 */
+/// Makes imported notes useful once the master local RAG toggle is enabled.
+fn default_rag_user_notes_retrieval_enabled() -> bool {
+    true
+}
+
+/** 代码模板检索默认允许，但受本地知识增强总开关控制。 */
+/// Makes imported templates available once the master local RAG toggle is enabled.
+fn default_rag_code_templates_retrieval_enabled() -> bool {
+    true
+}
+
+/** 相似题提示默认允许，但只使用轻量元数据。 */
+/// Allows lightweight metadata hints once local RAG is explicitly enabled.
+fn default_rag_similar_problems_enabled() -> bool {
+    true
+}
+
+/** 最大召回条数默认值：限制注入上下文规模。 */
+/// Caps local recall before prompt injection so context cannot grow without bounds.
+fn default_rag_max_recall_items() -> u32 {
+    DEFAULT_RAG_MAX_RECALL_ITEMS
+}
+
 impl AppSettings {
     /** 清理用户可编辑字段：去除空白，修复非法的速度、超时和截图参数。 */
     /// Trims user-editable string fields and repairs invalid custom speed, timeout, and screenshot values.
@@ -222,6 +279,12 @@ impl AppSettings {
             self.screenshot_jpeg_quality = default_screenshot_jpeg_quality();
         } else {
             self.screenshot_jpeg_quality = self.screenshot_jpeg_quality.clamp(1, 100);
+        }
+        if self.rag_max_recall_items == 0 {
+            self.rag_max_recall_items = default_rag_max_recall_items();
+        } else {
+            self.rag_max_recall_items =
+                self.rag_max_recall_items.clamp(1, MAX_RAG_MAX_RECALL_ITEMS);
         }
         // Platform format has no invalid state to sanitize.
         self
@@ -507,6 +570,12 @@ mod tests {
         assert_eq!(settings.screenshot_jpeg_quality, 85);
         assert!(!settings.save_history);
         assert!(!settings.launch_to_tray);
+        assert!(!settings.local_rag_enabled);
+        assert!(!settings.rag_history_indexing_enabled);
+        assert!(settings.rag_user_notes_retrieval_enabled);
+        assert!(settings.rag_code_templates_retrieval_enabled);
+        assert!(settings.rag_similar_problems_enabled);
+        assert_eq!(settings.rag_max_recall_items, 5);
         assert_eq!(settings.theme, ThemePreference::System);
         assert_eq!(settings.ui_locale, UiLocale::ZhCn);
     }
@@ -554,6 +623,12 @@ mod tests {
             platform_format: PlatformFormat::LeetCode,
             save_history: true,
             launch_to_tray: true,
+            local_rag_enabled: true,
+            rag_history_indexing_enabled: true,
+            rag_user_notes_retrieval_enabled: false,
+            rag_code_templates_retrieval_enabled: true,
+            rag_similar_problems_enabled: false,
+            rag_max_recall_items: 8,
             theme: ThemePreference::Dark,
             ui_locale: UiLocale::EnUs,
         };
@@ -683,6 +758,12 @@ mod tests {
         assert!(store.current().global_shortcut_enabled);
         assert_eq!(store.current().screenshot_max_long_edge, 1920);
         assert_eq!(store.current().screenshot_jpeg_quality, 85);
+        assert!(!store.current().local_rag_enabled);
+        assert!(!store.current().rag_history_indexing_enabled);
+        assert!(store.current().rag_user_notes_retrieval_enabled);
+        assert!(store.current().rag_code_templates_retrieval_enabled);
+        assert!(store.current().rag_similar_problems_enabled);
+        assert_eq!(store.current().rag_max_recall_items, 5);
         assert_eq!(store.current().ui_locale, UiLocale::ZhCn);
         assert_eq!(store.startup_warning(), None);
     }
@@ -697,6 +778,7 @@ mod tests {
         settings.request_timeout_seconds = 0;
         settings.screenshot_max_long_edge = 0;
         settings.screenshot_jpeg_quality = 0;
+        settings.rag_max_recall_items = 0;
 
         let sanitized = settings.sanitized();
 
@@ -707,6 +789,17 @@ mod tests {
         assert_eq!(sanitized.request_timeout_seconds, 60);
         assert_eq!(sanitized.screenshot_max_long_edge, 1920);
         assert_eq!(sanitized.screenshot_jpeg_quality, 85);
+        assert_eq!(sanitized.rag_max_recall_items, 5);
+    }
+
+    #[test]
+    fn clamps_rag_max_recall_items_to_supported_bounds() {
+        let mut settings = AppSettings::default();
+        settings.rag_max_recall_items = 999;
+
+        let sanitized = settings.sanitized();
+
+        assert_eq!(sanitized.rag_max_recall_items, MAX_RAG_MAX_RECALL_ITEMS);
     }
 
     #[test]

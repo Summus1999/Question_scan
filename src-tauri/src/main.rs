@@ -4,9 +4,15 @@ mod history;
 mod language;
 mod output_parser;
 mod pipeline;
+mod problem_index;
 mod prompts;
 mod provider;
 mod provider_key_store;
+mod rag_history;
+mod rag_imports;
+mod rag_prompt_context;
+mod rag_retrieval;
+mod rag_templates;
 mod recognition;
 mod runtime;
 mod screenshot;
@@ -18,6 +24,9 @@ mod tray;
 
 use crate::errors::AppError;
 use crate::history::HistoryStore;
+use crate::rag_history::RagHistoryStore;
+use crate::rag_imports::RagImportStore;
+use crate::rag_retrieval::RagEmbeddingStore;
 use crate::runtime::RuntimeStore;
 use crate::session::SessionContext;
 use crate::settings::SettingsStore;
@@ -47,9 +56,36 @@ fn main() {
                 .join("history.json");
             let history_store = HistoryStore::load(history_path, settings.save_history);
 
+            let rag_import_path = app
+                .path()
+                .app_config_dir()
+                .map_err(|_| AppError::ConfigDirUnavailable)?
+                .join("rag")
+                .join("user-imports.json");
+            let rag_import_store = RagImportStore::load(rag_import_path);
+
+            let rag_history_path = app
+                .path()
+                .app_config_dir()
+                .map_err(|_| AppError::ConfigDirUnavailable)?
+                .join("rag")
+                .join("history-records.json");
+            let rag_history_store = RagHistoryStore::load(rag_history_path);
+
+            let rag_embedding_path = app
+                .path()
+                .app_config_dir()
+                .map_err(|_| AppError::ConfigDirUnavailable)?
+                .join("rag")
+                .join("embeddings.json");
+            let rag_embedding_store = RagEmbeddingStore::load(rag_embedding_path);
+
             app.manage(RuntimeStore::default());
             app.manage(store);
             app.manage(history_store);
+            app.manage(rag_import_store);
+            app.manage(rag_history_store);
+            app.manage(rag_embedding_store);
             app.manage(SessionContext::default());
 
             cleanup_orphaned_temp_images(app.handle());
@@ -95,8 +131,18 @@ fn main() {
             commands::regenerate_with_language,
             commands::clear_cache,
             commands::list_history,
+            commands::save_history_entry,
             commands::delete_history_entry,
             commands::clear_history,
+            commands::list_leetcode_problem_index,
+            commands::import_rag_documents,
+            commands::list_rag_imports,
+            commands::delete_rag_import,
+            commands::clear_rag_index,
+            commands::rebuild_rag_index,
+            commands::search_rag_context,
+            commands::select_rag_template_context,
+            commands::build_rag_prompt_context,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Question Scan");

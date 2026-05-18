@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "leetcode_1",
+      "platform": "leetcode",
+      "problemNumber": "1",
+      "slug": "two-sum",
+      "title": "Two Sum",
+      "difficulty": "easy",
+      "tags": ["Array", "Hash Table"],
+      "algorithmTags": ["array", "hash-table"],
+      "problemType": "hash-table",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_2",
+      "platform": "leetcode",
+      "problemNumber": "2",
+      "slug": "add-two-numbers",
+      "title": "Add Two Numbers",
+      "difficulty": "medium",
+      "tags": ["Linked List", "Math", "Recursion"],
+      "algorithmTags": ["linked-list", "math", "recursion"],
+      "problemType": "linked-list",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_3",
+      "platform": "leetcode",
+      "problemNumber": "3",
+      "slug": "longest-substring-without-repeating-characters",
+      "title": "Longest Substring Without Repeating Characters",
+      "difficulty": "medium",
+      "tags": ["Hash Table", "String", "Sliding Window"],
+      "algorithmTags": ["hash-table", "string", "sliding-window"],
+      "problemType": "sliding-window",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_5",
+      "platform": "leetcode",
+      "problemNumber": "5",
+      "slug": "longest-palindromic-substring",
+      "title": "Longest Palindromic Substring",
+      "difficulty": "medium",
+      "tags": ["Two Pointers", "String", "Dynamic Programming"],
+      "algorithmTags": ["two-pointers", "string", "dynamic-programming"],
+      "problemType": "dynamic-programming",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_15",
+      "platform": "leetcode",
+      "problemNumber": "15",
+      "slug": "3sum",
+      "title": "3Sum",
+      "difficulty": "medium",
+      "tags": ["Array", "Two Pointers", "Sorting"],
+      "algorithmTags": ["array", "two-pointers", "sorting"],
+      "problemType": "two-pointers",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_53",
+      "platform": "leetcode",
+      "problemNumber": "53",
+      "slug": "maximum-subarray",
+      "title": "Maximum Subarray",
+      "difficulty": "medium",
+      "tags": ["Array", "Divide and Conquer", "Dynamic Programming"],
+      "algorithmTags": ["array", "divide-and-conquer", "dynamic-programming"],
+      "problemType": "dynamic-programming",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_70",
+      "platform": "leetcode",
+      "problemNumber": "70",
+      "slug": "climbing-stairs",
+      "title": "Climbing Stairs",
+      "difficulty": "easy",
+      "tags": ["Math", "Dynamic Programming", "Memoization"],
+      "algorithmTags": ["math", "dynamic-programming", "memoization"],
+      "problemType": "dynamic-programming",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_121",
+      "platform": "leetcode",
+      "problemNumber": "121",
+      "slug": "best-time-to-buy-and-sell-stock",
+      "title": "Best Time to Buy and Sell Stock",
+      "difficulty": "easy",
+      "tags": ["Array", "Dynamic Programming"],
+      "algorithmTags": ["array", "dynamic-programming"],
+      "problemType": "array",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_146",
+      "platform": "leetcode",
+      "problemNumber": "146",
+      "slug": "lru-cache",
+      "title": "LRU Cache",
+      "difficulty": "medium",
+      "tags": ["Hash Table", "Linked List", "Design", "Doubly-Linked List"],
+      "algorithmTags": [
+        "hash-table",
+        "linked-list",
+        "design",
+        "doubly-linked-list"
+      ],
+      "problemType": "design",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_200",
+      "platform": "leetcode",
+      "problemNumber": "200",
+      "slug": "number-of-islands",
+      "title": "Number of Islands",
+      "difficulty": "medium",
+      "tags": [
+        "Array",
+        "Depth-First Search",
+        "Breadth-First Search",
+        "Union Find",
+        "Matrix"
+      ],
+      "algorithmTags": ["array", "dfs", "bfs", "union-find", "matrix", "graph"],
+      "problemType": "graph",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_206",
+      "platform": "leetcode",
+      "problemNumber": "206",
+      "slug": "reverse-linked-list",
+      "title": "Reverse Linked List",
+      "difficulty": "easy",
+      "tags": ["Linked List", "Recursion"],
+      "algorithmTags": ["linked-list", "recursion"],
+      "problemType": "linked-list",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_217",
+      "platform": "leetcode",
+      "problemNumber": "217",
+      "slug": "contains-duplicate",
+      "title": "Contains Duplicate",
+      "difficulty": "easy",
+      "tags": ["Array", "Hash Table", "Sorting"],
+      "algorithmTags": ["array", "hash-table", "sorting"],
+      "problemType": "hash-table",
+      "source": "leetcode-lightweight-seed-v1"
+    },
+    {
+      "id": "leetcode_704",
+      "platform": "leetcode",
+      "problemNumber": "704",
+      "slug": "binary-search",
+      "title": "Binary Search",
+      "difficulty": "easy",
+      "tags": ["Array", "Binary Search"],
+      "algorithmTags": ["array", "binary-search"],
+      "problemType": "binary-search",
+      "source": "leetcode-lightweight-seed-v1"
+    }
+  ]
+}

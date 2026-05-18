@@ -6,6 +6,7 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { RagPromptContextItem } from '../lib/types';
 import { ResultPanel } from './ResultPanel';
 
 /** 默认消息文本配置，用于测试渲染。 */
@@ -27,7 +28,92 @@ const defaultMessages = {
   codeCopied: 'Code copied',
   answerCopied: 'Answer copied',
   resultCleared: 'Result cleared',
+  ragContextTitle: 'Local recalled context',
+  ragContextSubtitle:
+    'These local hits are references only; if they conflict with the screenshot, use the screenshot.',
+  ragContextUsed: 'Used',
+  ragContextSkipped: 'Skipped',
+  ragContextScore: 'Confidence',
+  ragContextTokens: 'Token estimate',
+  ragContextReason: 'Reason',
+  ragContextExpand: 'Expand',
+  ragContextCollapse: 'Collapse',
+  ragContextIgnore: 'Ignore',
+  ragContextIgnoredNotice: 'Ignored contexts',
+  ragContextTags: 'Tags',
+  ragContextAlgorithmTags: 'Algorithm tags',
+  ragContextNoVisibleItems: 'All matched contexts are ignored for this panel.',
+  ragContextSourceLabels: {
+    leetcodeIndex: 'Similar problem',
+    userImport: 'User import',
+    history: 'History record',
+    codeTemplate: 'Local template',
+    solutionMode: 'Solution mode',
+  },
+  ragContextKindLabels: {
+    problemStatement: 'Problem statement',
+    solution: 'Solution',
+    note: 'Note',
+    template: 'Template',
+    historySummary: 'History summary',
+    metadata: 'Metadata',
+    solutionMode: 'Solution mode',
+  },
 };
+
+const ragContextItems: RagPromptContextItem[] = [
+  {
+    id: 'ragimpchunk_123_0',
+    sourceType: 'userImport',
+    sourceId: 'ragimp_123',
+    title: 'Two Sum note',
+    snippet: 'Use a hash table to find complements.',
+    score: 0.87,
+    kind: 'solution',
+    language: 'cpp20',
+    platform: 'leetcode',
+    tags: ['array'],
+    algorithmTags: ['hash-table'],
+    usedInPrompt: true,
+    skippedReason: null,
+    tokenEstimate: 18,
+    reason: 'vector=0.730;algorithmTags',
+  },
+  {
+    id: 'codetpl_ragimp_hash',
+    sourceType: 'codeTemplate',
+    sourceId: 'ragimp_hash',
+    title: 'C++ hash map template',
+    snippet: 'unordered_map<int, int> seen;',
+    score: 0.79,
+    kind: 'template',
+    language: 'cpp20',
+    platform: 'leetcode',
+    tags: [],
+    algorithmTags: ['hash-table'],
+    usedInPrompt: true,
+    skippedReason: null,
+    tokenEstimate: 24,
+    reason: 'language;algorithmTags',
+  },
+  {
+    id: 'hist_1',
+    sourceType: 'history',
+    sourceId: 'hist_1',
+    title: 'Previous Two Sum attempt',
+    snippet: 'History summary says duplicate values need care.',
+    score: 0.16,
+    kind: 'historySummary',
+    language: 'cpp20',
+    platform: 'leetcode',
+    tags: ['array'],
+    algorithmTags: ['hash-table'],
+    usedInPrompt: false,
+    skippedReason: 'lowConfidence',
+    tokenEstimate: 22,
+    reason: 'vector=0.160',
+  },
+];
 
 /** 测试辅助函数：渲染 ResultPanel 并填充默认 props。 */
 function renderPanel(props: Partial<Parameters<typeof ResultPanel>[0]> = {}) {
@@ -212,5 +298,79 @@ describe('ResultPanel', () => {
     expect(
       screen.getByRole('button', { name: 'Regenerate' }),
     ).toBeInTheDocument();
+  });
+
+  /** 有 RAG 上下文时显示来源、置信度和使用状态。 */
+  it('shows RAG context sources, confidence, and usage status', () => {
+    renderPanel({
+      state: 'complete',
+      fullText: 'answer',
+      displayedText: 'answer',
+      ragContextItems,
+    });
+
+    expect(screen.getByTestId('rag-context-summary')).toBeInTheDocument();
+    expect(screen.getByText('Local recalled context')).toBeInTheDocument();
+    expect(screen.getByText('Two Sum note')).toBeInTheDocument();
+    expect(screen.getByText('C++ hash map template')).toBeInTheDocument();
+    expect(screen.getByText('Previous Two Sum attempt')).toBeInTheDocument();
+    expect(screen.getByText('User import')).toBeInTheDocument();
+    expect(screen.getByText('Local template')).toBeInTheDocument();
+    expect(screen.getByText('History record')).toBeInTheDocument();
+    expect(screen.getByText('Confidence: 87%')).toBeInTheDocument();
+    expect(screen.getByText('Used: 2')).toBeInTheDocument();
+    expect(screen.getByText('Skipped: 1')).toBeInTheDocument();
+  });
+
+  /** 用户可以展开单条 RAG 上下文，查看摘要、标签和跳过原因。 */
+  it('expands a RAG context item to show details', () => {
+    renderPanel({
+      state: 'complete',
+      fullText: 'answer',
+      displayedText: 'answer',
+      ragContextItems,
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Expand Previous Two Sum attempt' }),
+    );
+
+    expect(
+      screen.getByText('History summary says duplicate values need care.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Algorithm tags')).toBeInTheDocument();
+    expect(screen.getByText('hash-table')).toBeInTheDocument();
+    expect(screen.getByText('Token estimate')).toBeInTheDocument();
+    expect(screen.getByText('lowConfidence')).toBeInTheDocument();
+  });
+
+  /** 用户可以忽略单条 RAG 上下文，忽略后该条从当前列表移除。 */
+  it('ignores a RAG context item without removing the answer content', () => {
+    renderPanel({
+      state: 'complete',
+      fullText: 'answer',
+      displayedText: 'answer',
+      ragContextItems,
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Ignore Two Sum note' }),
+    );
+
+    expect(screen.queryByText('Two Sum note')).not.toBeInTheDocument();
+    expect(screen.getAllByText('answer').length).toBeGreaterThan(0);
+    expect(screen.getByText('Ignored contexts: 1')).toBeInTheDocument();
+  });
+
+  /** 没有 RAG 上下文时，不显示上下文区块。 */
+  it('does not render the RAG context section when there are no items', () => {
+    renderPanel({
+      state: 'complete',
+      fullText: 'answer',
+      displayedText: 'answer',
+      ragContextItems: [],
+    });
+
+    expect(screen.queryByTestId('rag-context-summary')).not.toBeInTheDocument();
   });
 });

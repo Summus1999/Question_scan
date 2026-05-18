@@ -26,6 +26,14 @@ pub enum AppError {
     GlobalShortcutRegistrationFailed { shortcut: String, reason: String },
     #[error("The AI request failed. {message}")]
     AiRequestFailed { code: String, message: String },
+    #[error("The lightweight problem index could not be loaded. {reason}")]
+    ProblemIndexLoadFailed { reason: String },
+    #[error("The RAG import operation failed. {reason}")]
+    RagImportFailed { reason: String },
+    #[error("The history RAG record could not be updated. {reason}")]
+    RagHistoryIndexFailed { reason: String },
+    #[error("The RAG retrieval operation failed. {reason}")]
+    RagRetrievalFailed { reason: String },
 }
 
 impl AppError {
@@ -43,6 +51,10 @@ impl AppError {
             Self::GlobalShortcutOccupiedByAnotherApp { .. } => "globalShortcutOccupiedByAnotherApp",
             Self::GlobalShortcutRegistrationFailed { .. } => "globalShortcutRegistrationFailed",
             Self::AiRequestFailed { .. } => "aiRequestFailed",
+            Self::ProblemIndexLoadFailed { .. } => "problemIndexLoadFailed",
+            Self::RagImportFailed { .. } => "ragImportFailed",
+            Self::RagHistoryIndexFailed { .. } => "ragHistoryIndexFailed",
+            Self::RagRetrievalFailed { .. } => "ragRetrievalFailed",
         }
     }
 }

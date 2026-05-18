@@ -27,16 +27,21 @@ import { useTypewriter } from './hooks/useTypewriter';
 import {
   clearCache,
   clearHistory,
+  clearRagIndex,
   deleteHistoryEntry,
+  deleteRagImport,
   hideMainWindow,
   listenAiStreamEvent,
   listenGlobalShortcutTriggered,
   listenOpenSettings,
   listenRuntimeStateChanged,
   listHistory,
+  listRagImports,
   loadAppState,
+  rebuildRagIndex,
   regenerateWithLanguage,
   resetSettings,
+  saveHistoryEntry,
   saveSettings,
   showMainWindow,
   toggleMainWindow,
@@ -47,12 +52,18 @@ import {
   type AppState,
   type CropSelectionRect,
   DEFAULT_APP_STATE,
+  DEFAULT_RAG_MAX_RECALL_ITEMS,
   DEFAULT_SETTINGS,
   type HistoryEntry,
   LANGUAGE_OPTIONS,
   type LanguageId,
   OUTPUT_SPEED_OPTIONS,
   PLATFORM_FORMATS,
+  RAG_MAX_RECALL_ITEMS_MAX,
+  RAG_MAX_RECALL_ITEMS_MIN,
+  type RagImportedDocument,
+  type RagIndexMaintenanceResult,
+  type RagPromptContextItem,
   UI_LOCALES,
 } from './lib/types';
 
@@ -63,7 +74,7 @@ const panelClassName =
 
 /**
  * 修复可能不完整的设置快照。
- * 旧版本持久化文件可能缺少 uiLocale 字段，此函数确保回退到默认值。
+ * 旧版本持久化文件可能缺少界面语言或 RAG 字段，此函数确保回退到默认值。
  */
 function normalizeSettings(settings: AppSettings): AppSettings {
   return {
@@ -71,6 +82,17 @@ function normalizeSettings(settings: AppSettings): AppSettings {
     ...settings,
     uiLocale: settings.uiLocale ?? DEFAULT_SETTINGS.uiLocale,
   };
+}
+
+function clampRagMaxRecallItems(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return DEFAULT_RAG_MAX_RECALL_ITEMS;
+  }
+
+  return Math.min(
+    RAG_MAX_RECALL_ITEMS_MAX,
+    Math.max(RAG_MAX_RECALL_ITEMS_MIN, Math.trunc(value)),
+  );
 }
 
 /**
@@ -101,6 +123,16 @@ function App() {
   );
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [ragImports, setRagImports] = useState<RagImportedDocument[]>([]);
+  const [isRagImportsLoading, setIsRagImportsLoading] = useState(false);
+  const [isRagIndexBusy, setIsRagIndexBusy] = useState(false);
+  const [ragContextItems, setRagContextItems] = useState<
+    RagPromptContextItem[]
+  >([]);
+  const aiOutputRef = useRef('');
+  const activeRequestSavedRef = useRef(false);
+  const draftRef = useRef(draft);
+  const currentLanguageRef = useRef(currentLanguage);
 
   const typewriter = useTypewriter({
     speed: draft.outputSpeed,
@@ -143,6 +175,14 @@ function App() {
           },
     [draft.uiLocale],
   );
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    currentLanguageRef.current = currentLanguage;
+  }, [currentLanguage]);
 
   /**
    * 将 Tauri 命令错误转换为用户可读的文案。
@@ -291,6 +331,10 @@ function App() {
 
           switch (payload.type) {
             case 'chunk': {
+              if (aiOutputRef.current.length === 0) {
+                activeRequestSavedRef.current = false;
+              }
+              aiOutputRef.current += payload.content;
               typewriter.append(payload.content);
               setState((current) => ({
                 ...current,
@@ -299,7 +343,43 @@ function App() {
               }));
               break;
             }
+            case 'ragContext': {
+              setRagContextItems(payload.items);
+              break;
+            }
             case 'done': {
+              const result = aiOutputRef.current.trim();
+              const settings = draftRef.current;
+              if (
+                settings.saveHistory &&
+                result &&
+                !activeRequestSavedRef.current
+              ) {
+                activeRequestSavedRef.current = true;
+                void saveHistoryEntry({
+                  recognizedTitle: null,
+                  recognizedText: null,
+                  language: currentLanguageRef.current,
+                  platform: settings.platformFormat,
+                  model: settings.providerModel,
+                  result,
+                  userNote: null,
+                  tags: [],
+                  algorithmTags: [],
+                })
+                  .then((entry) => {
+                    if (entry) {
+                      setHistoryEntries((current) => [...current, entry]);
+                    }
+                  })
+                  .catch((error) => {
+                    const message = errorMessage(
+                      error,
+                      'Failed to save history entry',
+                    );
+                    setNotice({ tone: 'error', text: message });
+                  });
+              }
               setState((current) => ({
                 ...current,
                 aiResultState: 'complete',
@@ -431,6 +511,9 @@ function App() {
 
   /** 清空结果面板，重置打字机和错误状态。 */
   const handleClearResult = useCallback(() => {
+    aiOutputRef.current = '';
+    activeRequestSavedRef.current = false;
+    setRagContextItems([]);
     typewriter.reset();
     setAiError(null);
     setState((current) => ({
@@ -446,6 +529,9 @@ function App() {
 
   /** 重新生成答案（使用当前设置）。 */
   const handleRegenerate = useCallback(() => {
+    aiOutputRef.current = '';
+    activeRequestSavedRef.current = false;
+    setRagContextItems([]);
     typewriter.reset();
     setAiError(null);
     setState((current) => ({
@@ -467,6 +553,9 @@ function App() {
   const handleSwitchLanguage = useCallback(
     async (language: LanguageId) => {
       setCurrentLanguage(language);
+      aiOutputRef.current = '';
+      activeRequestSavedRef.current = false;
+      setRagContextItems([]);
       typewriter.reset();
       setAiError(null);
       setState((current) => ({
@@ -518,6 +607,52 @@ function App() {
       setIsHistoryLoading(false);
     }
   }, [draft.saveHistory, errorMessage]);
+
+  /** 加载用户导入的 RAG 资料列表，用于隐私控制里的单条删除入口。 */
+  const loadRagImports = useCallback(async () => {
+    setIsRagImportsLoading(true);
+    try {
+      const imports = await listRagImports();
+      setRagImports(imports);
+    } catch (error) {
+      const message = errorMessage(error, 'Failed to load RAG imports');
+      setNotice({ tone: 'error', text: message });
+    } finally {
+      setIsRagImportsLoading(false);
+    }
+  }, [errorMessage]);
+
+  /** 格式化 RAG 索引维护命令返回的用户可读统计信息。 */
+  const formatRagIndexMaintenanceNotice = useCallback(
+    (baseNotice: string, result: RagIndexMaintenanceResult) => {
+      const skippedReason =
+        result.skippedReason === 'localRagDisabled'
+          ? messages.dataManagement.ragIndexSkippedLocalRagDisabled
+          : result.skippedReason === 'emptyIndex'
+            ? messages.dataManagement.ragIndexSkippedEmpty
+            : result.skippedReason
+              ? `${messages.dataManagement.ragIndexSkippedUnknown}${result.skippedReason}`
+              : null;
+      const stats = messages.dataManagement.ragIndexStats
+        .replace('{clearedEmbedding}', result.clearedEmbeddingCount.toString())
+        .replace('{rebuiltEmbedding}', result.rebuiltEmbeddingCount.toString())
+        .replace(
+          '{clearedHistoryDocuments}',
+          result.clearedHistoryDocumentCount.toString(),
+        )
+        .replace(
+          '{rebuiltHistoryDocuments}',
+          result.rebuiltHistoryDocumentCount.toString(),
+        )
+        .replace(
+          '{clearedHistoryChunks}',
+          result.clearedHistoryChunkCount.toString(),
+        );
+
+      return [baseNotice, skippedReason, stats].filter(Boolean).join(' ');
+    },
+    [messages.dataManagement],
+  );
 
   /** 清空系统临时缓存。 */
   const handleClearCache = useCallback(async () => {
@@ -589,27 +724,136 @@ function App() {
   );
 
   /**
+   * 持久化指定设置快照。
+   * 普通保存按钮和隐私控制里的即时开关共用此函数，避免两套保存路径分叉。
+   */
+  const persistSettings = useCallback(
+    async (nextSettings: AppSettings, successMessage: string) => {
+      setIsSaving(true);
+      setNotice(null);
+
+      try {
+        const snapshot = await saveSettings(nextSettings);
+        applySnapshot(snapshot);
+        setNotice({
+          tone: 'neutral',
+          text: successMessage,
+        });
+      } catch (error) {
+        const message = errorMessage(error, messages.notices.saveFailed);
+        setNotice({ tone: 'error', text: message });
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [applySnapshot, errorMessage, messages.notices.saveFailed],
+  );
+
+  /** 删除单条用户导入资料，并同步移除该资料的本地 embedding 缓存。 */
+  const handleDeleteRagImport = useCallback(
+    async (id: string) => {
+      try {
+        const deleted = await deleteRagImport(id);
+        if (deleted) {
+          setRagImports((current) =>
+            current.filter((document) => document.id !== id),
+          );
+          setNotice({
+            tone: 'neutral',
+            text: messages.dataManagement.deleteRagImportNotice,
+          });
+        }
+      } catch (error) {
+        const message = errorMessage(error, 'Failed to delete RAG import');
+        setNotice({ tone: 'error', text: message });
+      }
+    },
+    [errorMessage, messages.dataManagement.deleteRagImportNotice],
+  );
+
+  /** 清除本地 RAG 索引，但保留用户导入原文、普通历史和轻量题目元数据。 */
+  const handleClearRagIndex = useCallback(async () => {
+    setIsRagIndexBusy(true);
+    try {
+      const result = await clearRagIndex();
+      setNotice({
+        tone: 'neutral',
+        text: formatRagIndexMaintenanceNotice(
+          messages.dataManagement.clearRagIndexNotice,
+          result,
+        ),
+      });
+    } catch (error) {
+      const message = errorMessage(error, 'Failed to clear RAG index');
+      setNotice({ tone: 'error', text: message });
+    } finally {
+      setIsRagIndexBusy(false);
+    }
+  }, [
+    errorMessage,
+    formatRagIndexMaintenanceNotice,
+    messages.dataManagement.clearRagIndexNotice,
+  ]);
+
+  /** 按当前隐私开关和现有资料重建本地 RAG 索引。 */
+  const handleRebuildRagIndex = useCallback(async () => {
+    setIsRagIndexBusy(true);
+    try {
+      const result = await rebuildRagIndex();
+      setNotice({
+        tone: 'neutral',
+        text: formatRagIndexMaintenanceNotice(
+          messages.dataManagement.rebuildRagIndexNotice,
+          result,
+        ),
+      });
+    } catch (error) {
+      const message = errorMessage(error, 'Failed to rebuild RAG index');
+      setNotice({ tone: 'error', text: message });
+    } finally {
+      setIsRagIndexBusy(false);
+    }
+  }, [
+    errorMessage,
+    formatRagIndexMaintenanceNotice,
+    messages.dataManagement.rebuildRagIndexNotice,
+  ]);
+
+  /** 隐私控制里的即时关闭历史入库动作，常规历史保存不受影响。 */
+  const handleDisableHistoryIndexing = useCallback(async () => {
+    if (!draft.ragHistoryIndexingEnabled) {
+      setNotice({
+        tone: 'neutral',
+        text: messages.dataManagement.historyIndexingAlreadyDisabled,
+      });
+      return;
+    }
+
+    const nextSettings = {
+      ...draft,
+      ragHistoryIndexingEnabled: false,
+    };
+    await persistSettings(
+      nextSettings,
+      getMessages(nextSettings.uiLocale).dataManagement
+        .disableHistoryIndexingNotice,
+    );
+  }, [
+    draft,
+    messages.dataManagement.historyIndexingAlreadyDisabled,
+    persistSettings,
+  ]);
+
+  /**
    * 保存设置草稿到后端，并用返回的快照重新同步 UI。
    * 保存成功后会显示提示，失败则显示错误信息。
    */
   const persist = useCallback(async () => {
-    setIsSaving(true);
-    setNotice(null);
-
-    try {
-      const snapshot = await saveSettings(draft);
-      applySnapshot(snapshot);
-      setNotice({
-        tone: 'neutral',
-        text: getMessages(draft.uiLocale).notices.saveSucceeded,
-      });
-    } catch (error) {
-      const message = errorMessage(error, messages.notices.saveFailed);
-      setNotice({ tone: 'error', text: message });
-    } finally {
-      setIsSaving(false);
-    }
-  }, [applySnapshot, draft, errorMessage, messages.notices.saveFailed]);
+    await persistSettings(
+      draft,
+      getMessages(draft.uiLocale).notices.saveSucceeded,
+    );
+  }, [draft, persistSettings]);
 
   /**
    * 重置所有设置为默认值。
@@ -674,6 +918,7 @@ function App() {
   /** 当前选中的输出速度标签。 */
   const currentSpeedLabel =
     messages.outputSpeed[draft.outputSpeed] ?? messages.outputSpeed.normal;
+  const ragSourceControlsDisabled = !draft.localRagEnabled;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -1029,6 +1274,95 @@ function App() {
                 </Field>
               </div>
 
+              <Field label={messages.settings.localRagTitle}>
+                <div className="grid gap-3">
+                  <p className="text-sm leading-6 text-slate-600">
+                    {messages.settings.localRagDescription}
+                  </p>
+                  <ToggleRow
+                    label={messages.settings.localRagEnabledLabel}
+                    description={messages.settings.localRagEnabledDescription}
+                    checked={draft.localRagEnabled}
+                    onChange={(checked) =>
+                      updateField('localRagEnabled', checked)
+                    }
+                  />
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <ToggleRow
+                      label={messages.settings.ragHistoryIndexingLabel}
+                      description={
+                        messages.settings.ragHistoryIndexingDescription
+                      }
+                      checked={draft.ragHistoryIndexingEnabled}
+                      onChange={(checked) =>
+                        updateField('ragHistoryIndexingEnabled', checked)
+                      }
+                      disabled={ragSourceControlsDisabled}
+                    />
+                    <ToggleRow
+                      label={messages.settings.ragUserNotesLabel}
+                      description={messages.settings.ragUserNotesDescription}
+                      checked={draft.ragUserNotesRetrievalEnabled}
+                      onChange={(checked) =>
+                        updateField('ragUserNotesRetrievalEnabled', checked)
+                      }
+                      disabled={ragSourceControlsDisabled}
+                    />
+                    <ToggleRow
+                      label={messages.settings.ragCodeTemplatesLabel}
+                      description={
+                        messages.settings.ragCodeTemplatesDescription
+                      }
+                      checked={draft.ragCodeTemplatesRetrievalEnabled}
+                      onChange={(checked) =>
+                        updateField('ragCodeTemplatesRetrievalEnabled', checked)
+                      }
+                      disabled={ragSourceControlsDisabled}
+                    />
+                    <ToggleRow
+                      label={messages.settings.ragSimilarProblemsLabel}
+                      description={
+                        messages.settings.ragSimilarProblemsDescription
+                      }
+                      checked={draft.ragSimilarProblemsEnabled}
+                      onChange={(checked) =>
+                        updateField('ragSimilarProblemsEnabled', checked)
+                      }
+                      disabled={ragSourceControlsDisabled}
+                    />
+                  </div>
+                  <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+                    <label
+                      className="text-sm font-medium text-slate-900"
+                      htmlFor="rag-max-recall-items"
+                    >
+                      {messages.settings.ragMaxRecallItemsLabel}
+                    </label>
+                    <input
+                      id="rag-max-recall-items"
+                      className="field-input max-w-40"
+                      type="number"
+                      min={RAG_MAX_RECALL_ITEMS_MIN}
+                      max={RAG_MAX_RECALL_ITEMS_MAX}
+                      step={1}
+                      value={draft.ragMaxRecallItems}
+                      onChange={(event) =>
+                        updateField(
+                          'ragMaxRecallItems',
+                          clampRagMaxRecallItems(
+                            Number(event.target.value || 0),
+                          ),
+                        )
+                      }
+                      disabled={ragSourceControlsDisabled}
+                    />
+                    <p className="text-xs leading-5 text-slate-500">
+                      {messages.settings.ragMaxRecallItemsDescription}
+                    </p>
+                  </div>
+                </div>
+              </Field>
+
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
                 <Field label={messages.fields.theme}>
                   <div className="grid grid-cols-3 gap-2">
@@ -1111,7 +1445,7 @@ function App() {
 
               <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                 <h3 className="text-sm font-semibold text-slate-900">
-                  {draft.uiLocale === 'zhCn' ? '数据管理' : 'Data management'}
+                  {messages.dataManagement.title}
                 </h3>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
@@ -1142,10 +1476,8 @@ function App() {
                       disabled={isHistoryLoading}
                     >
                       {isHistoryLoading
-                        ? 'Loading...'
-                        : draft.uiLocale === 'zhCn'
-                          ? '刷新历史记录'
-                          : 'Refresh history'}
+                        ? messages.dataManagement.loading
+                        : messages.dataManagement.refreshHistory}
                     </button>
                     {historyEntries.length > 0 && (
                       <ul className="mt-2 space-y-2">
@@ -1157,9 +1489,7 @@ function App() {
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium text-slate-900">
                                 {entry.recognizedTitle ??
-                                  (draft.uiLocale === 'zhCn'
-                                    ? '无标题'
-                                    : 'Untitled')}
+                                  messages.dataManagement.untitledHistoryEntry}
                               </p>
                               <p className="text-xs text-slate-500">
                                 {entry.language} · {entry.platform} ·{' '}
@@ -1182,13 +1512,109 @@ function App() {
                     )}
                     {historyEntries.length === 0 && !isHistoryLoading && (
                       <p className="mt-2 text-sm text-slate-500">
-                        {draft.uiLocale === 'zhCn'
-                          ? '暂无历史记录'
-                          : 'No history entries'}
+                        {messages.dataManagement.noHistoryEntries}
                       </p>
                     )}
                   </div>
                 )}
+                <div className="mt-4 border-t border-slate-200 pt-4">
+                  <div className="flex flex-col gap-3">
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-900">
+                        {messages.dataManagement.ragPrivacyTitle}
+                      </h4>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        {messages.dataManagement.ragPrivacyDescription}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => void handleClearRagIndex()}
+                        disabled={isRagIndexBusy}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {messages.dataManagement.clearRagIndex}
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => void handleRebuildRagIndex()}
+                        disabled={isRagIndexBusy}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        {messages.dataManagement.rebuildRagIndex}
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => void handleDisableHistoryIndexing()}
+                        disabled={isSaving || !draft.ragHistoryIndexingEnabled}
+                      >
+                        <Shield className="h-4 w-4" />
+                        {messages.dataManagement.disableHistoryIndexing}
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => void loadRagImports()}
+                        disabled={isRagImportsLoading}
+                      >
+                        <RefreshCw
+                          className={`h-4 w-4 ${isRagImportsLoading ? 'animate-spin' : ''}`}
+                        />
+                        {isRagImportsLoading
+                          ? messages.dataManagement.loading
+                          : messages.dataManagement.refreshRagImports}
+                      </button>
+                    </div>
+                    {ragImports.length > 0 ? (
+                      <ul className="space-y-2">
+                        {ragImports.map((document) => (
+                          <li
+                            key={document.id}
+                            className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-900">
+                                {document.title || document.sourceName}
+                              </p>
+                              <p className="truncate text-xs text-slate-500">
+                                {
+                                  messages.dataManagement.importKindLabels[
+                                    document.kind
+                                  ]
+                                }{' '}
+                                · {document.sourceName} ·{' '}
+                                {messages.dataManagement.importUpdatedAt}{' '}
+                                {new Date(document.updatedAt).toLocaleString(
+                                  draft.uiLocale === 'zhCn' ? 'zh-CN' : 'en-US',
+                                )}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                              onClick={() =>
+                                void handleDeleteRagImport(document.id)
+                              }
+                              aria-label={`${messages.dataManagement.deleteRagImport}: ${document.title}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      !isRagImportsLoading && (
+                        <p className="text-sm text-slate-500">
+                          {messages.dataManagement.noRagImports}
+                        </p>
+                      )
+                    )}
+                  </div>
+                </div>
               </div>
             </form>
           </section>
@@ -1277,12 +1703,34 @@ function App() {
                   codeCopied: messages.resultPanel.codeCopied,
                   answerCopied: messages.resultPanel.fullAnswerCopied,
                   resultCleared: messages.resultPanel.clearResultNotice,
+                  ragContextTitle: messages.resultPanel.ragContextTitle,
+                  ragContextSubtitle: messages.resultPanel.ragContextSubtitle,
+                  ragContextUsed: messages.resultPanel.ragContextUsed,
+                  ragContextSkipped: messages.resultPanel.ragContextSkipped,
+                  ragContextScore: messages.resultPanel.ragContextScore,
+                  ragContextTokens: messages.resultPanel.ragContextTokens,
+                  ragContextReason: messages.resultPanel.ragContextReason,
+                  ragContextExpand: messages.resultPanel.ragContextExpand,
+                  ragContextCollapse: messages.resultPanel.ragContextCollapse,
+                  ragContextIgnore: messages.resultPanel.ragContextIgnore,
+                  ragContextIgnoredNotice:
+                    messages.resultPanel.ragContextIgnoredNotice,
+                  ragContextTags: messages.resultPanel.ragContextTags,
+                  ragContextAlgorithmTags:
+                    messages.resultPanel.ragContextAlgorithmTags,
+                  ragContextNoVisibleItems:
+                    messages.resultPanel.ragContextNoVisibleItems,
+                  ragContextSourceLabels:
+                    messages.resultPanel.ragContextSourceLabels,
+                  ragContextKindLabels:
+                    messages.resultPanel.ragContextKindLabels,
                 }}
                 onCopyCode={handleCopyCode}
                 onCopyFullAnswer={handleCopyFullAnswer}
                 onClearResult={handleClearResult}
                 onRegenerate={handleRegenerate}
                 onSwitchLanguage={handleSwitchLanguage}
+                ragContextItems={ragContextItems}
               />
             </div>
           </section>
@@ -1353,19 +1801,24 @@ function ToggleRow({
   description,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   description: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 transition hover:bg-white">
+    <label
+      className={`flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 transition ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-white'}`}
+    >
       <input
         className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
+        disabled={disabled}
       />
       <span className="min-w-0">
         <span className="block text-sm font-medium text-slate-900">

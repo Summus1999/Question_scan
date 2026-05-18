@@ -17,6 +17,20 @@ pub fn build_solution_prompt(
     recognized_title: Option<&str>,
     recognized_text: Option<&str>,
 ) -> String {
+    build_solution_prompt_with_rag(language, platform, recognized_title, recognized_text, None)
+}
+
+/** 构建带可选 RAG 上下文的解题提示词。
+ * RAG section 已由 rag_prompt_context 模块完成过滤、压缩和来源标记。
+ */
+/// Builds the solution prompt with an optional compressed RAG context section.
+pub fn build_solution_prompt_with_rag(
+    language: LanguageId,
+    platform: PlatformFormat,
+    recognized_title: Option<&str>,
+    recognized_text: Option<&str>,
+    rag_context_section: Option<&str>,
+) -> String {
     let lang_hint = language.standard_hint();
     let platform_hint = platform.label();
 
@@ -30,6 +44,12 @@ pub fn build_solution_prompt(
         .map(|t| format!("The user also extracted the following text from the image: {t}"))
         .unwrap_or_default();
 
+    let rag_section = rag_context_section
+        .map(str::trim)
+        .filter(|section| !section.is_empty())
+        .map(|section| format!("\n{section}\n"))
+        .unwrap_or_default();
+
     format!(
         r#"You are an algorithm problem solver. Analyze the image and produce a direct solution in the requested language and platform format.
 
@@ -37,6 +57,7 @@ Language: {lang_hint}
 Platform format: {platform_hint}
 {title_section}
 {text_section}
+{rag_section}
 
 Your response MUST follow this exact structure with these section headers:
 
@@ -117,7 +138,10 @@ pub fn build_platform_signature_hint(platform: PlatformFormat) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_language_constraints, build_platform_signature_hint, build_solution_prompt};
+    use super::{
+        build_language_constraints, build_platform_signature_hint, build_solution_prompt,
+        build_solution_prompt_with_rag,
+    };
     use crate::language::{LanguageId, PlatformFormat};
 
     #[test]
@@ -160,6 +184,22 @@ mod tests {
         assert!(prompt.contains("复杂度"));
         assert!(prompt.contains("边界用例"));
         assert!(prompt.contains("注意事项"));
+    }
+
+    #[test]
+    fn prompt_can_include_compressed_rag_context_section() {
+        let prompt = build_solution_prompt_with_rag(
+            LanguageId::Cpp20,
+            PlatformFormat::LeetCode,
+            Some("Two Sum"),
+            Some("Return two indices."),
+            Some("Local recalled context (reference only):\n1. Source: User import"),
+        );
+
+        assert!(prompt.contains("Two Sum"));
+        assert!(prompt.contains("Local recalled context"));
+        assert!(prompt.contains("Source: User import"));
+        assert!(prompt.contains("Your response MUST follow"));
     }
 
     #[test]
